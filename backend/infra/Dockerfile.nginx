@@ -1,0 +1,16 @@
+# Use the official Nginx Alpine image
+FROM nginx:alpine
+
+# Remove default Nginx static files
+RUN rm -rf /usr/share/nginx/html/*
+
+# Copy your frontend files to Nginx's html folder
+# Adjust the path if your Dockerfile is in 'backend/' and frontend is in project root
+COPY ../frontend/ /usr/share/nginx/html/
+
+# Expose port 80 to the host
+EXPOSE 80
+
+# Start Nginx in the foreground
+CMD ["nginx", "-g", "daemon off;"]
+

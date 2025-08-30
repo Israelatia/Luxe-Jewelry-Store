@@ -1,0 +1,14 @@
+# Use official Jenkins agent base image
+FROM jenkins/inbound-agent:latest
+
+# Install Docker CLI and Python (optional, adjust for your needs)
+USER root
+RUN apt-get update && \
+    apt-get install -y docker.io python3 python3-pip git curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /home/jenkins
+
+# Switch back to jenkins user
+USER jenkins
