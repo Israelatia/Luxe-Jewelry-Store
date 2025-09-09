@@ -1,20 +1,18 @@
 version: "3.9"
-
 services:
   backend:
     build:
-      context: ./backend              # points to backend folder
-      dockerfile: infra/Dockerfile.app  # points to infra/Dockerfile.app
+      context: ./backend
+      dockerfile: ../infra/Dockerfile.app   # go up to root, then into infra
     container_name: backend
     ports:
-      - "5000:8000"  # host:container (backend runs on 8000 inside container)
+      - "5000:8000"
 
   front:
     build:
-      context: ./frontend             # points to frontend folder
-      dockerfile: ../backend/infra/Dockerfile.nginx  # use nginx Dockerfile from infra
+      context: ./frontend
+      dockerfile: ../infra/Dockerfile.nginx   # go up to root, then into infra
     container_name: front
     ports:
-      - "8081:80"   # host:container (nginx runs on port 80 inside container)
-
+      - "8081:80"
 
