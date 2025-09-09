@@ -1,7 +1,7 @@
 pipeline {
     agent {
         docker {
-            image 'israelatia/jenkins-agent:latest'  // replace with your Docker Hub image
+            image 'israelatia/jenkins-agent:latest'
             args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
@@ -13,7 +13,7 @@ pipeline {
     }
 
     environment {
-        DOCKER_REGISTRY = 'israelatia'        // your Docker Hub username
+        DOCKER_REGISTRY = 'israelatia'
         APP_NAME = 'luxe-jewelry-store'
     }
 
@@ -24,17 +24,19 @@ pipeline {
             }
         }
 
-        stage('Build app') {
+        stage('Build and Push App Docker Image') {
             steps {
                 script {
-                    def tag = "${env.BUILD_NUMBER}"  // can also use env.GIT_COMMIT
-                    sh """
-                        echo \$DOCKER_PASSWORD | docker login --username \$DOCKER_REGISTRY --password-stdin
-                        docker build -t \$DOCKER_REGISTRY/\$APP_NAME:\$tag ./backend
-                        docker tag \$DOCKER_REGISTRY/\$APP_NAME:\$tag \$DOCKER_REGISTRY/\$APP_NAME:latest
-                        docker push \$DOCKER_REGISTRY/\$APP_NAME:\$tag
-                        docker push \$DOCKER_REGISTRY/\$APP_NAME:latest
-                    """
+                    def tag = "${env.BUILD_NUMBER}"
+                    withCredentials([string(credentialsId: 'DOCKER_PASSWORD', variable: 'DOCKER_PASSWORD')]) {
+                        sh """
+                            echo \$DOCKER_PASSWORD | docker login --username \$DOCKER_REGISTRY --password-stdin
+                            docker build -t \$DOCKER_REGISTRY/\$APP_NAME:\$tag ./backend
+                            docker tag \$DOCKER_REGISTRY/\$APP_NAME:\$tag \$DOCKER_REGISTRY/\$APP_NAME:latest
+                            docker push \$DOCKER_REGISTRY/\$APP_NAME:\$tag
+                            docker push \$DOCKER_REGISTRY/\$APP_NAME:latest
+                        """
+                    }
                 }
             }
         }
@@ -48,7 +50,7 @@ pipeline {
 
     post {
         always {
-            // Cleanup to free space
+            // Clean up Docker images and containers to save space
             sh 'docker compose -f docker-compose.yml down --rmi all -v'
         }
     }
