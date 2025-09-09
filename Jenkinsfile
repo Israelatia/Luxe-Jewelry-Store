@@ -66,4 +66,26 @@ pipeline {
                     sh '''
                         if docker compose version > /dev/null 2>&1; then
                           docker compose -f ${WORKSPACE}/docker-compose.yml config
+                        else
+                          docker-compose -f ${WORKSPACE}/docker-compose.yml config
+                        fi
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Cleaning up containers..."
+            sh '''
+                if docker compose version > /dev/null 2>&1; then
+                  docker compose -f ${WORKSPACE}/docker-compose.yml down || true
+                else
+                  docker-compose -f ${WORKSPACE}/docker-compose.yml down || true
+                fi
+            '''
+        }
+    }
+}
 
