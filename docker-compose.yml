@@ -1,18 +1,19 @@
 version: "3.9"
+
 services:
   backend:
     build:
       context: ./backend
-      dockerfile: ../infra/Dockerfile.app   # go up to root, then into infra
+      dockerfile: infra/Dockerfile.app
     container_name: backend
     ports:
       - "5000:8000"
 
   front:
     build:
-      context: ./frontend
-      dockerfile: ../infra/Dockerfile.nginx   # go up to root, then into infra
+      context: .                  # repo root
+      dockerfile: Dockerfile.nginx
     container_name: front
     ports:
-      - "8081:80"
+      - "80:80"
 
