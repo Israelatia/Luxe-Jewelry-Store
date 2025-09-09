@@ -35,9 +35,9 @@ pipeline {
                     echo "Building Docker images..."
                     sh '''
                         if docker compose version > /dev/null 2>&1; then
-                          docker compose -f ${WORKSPACE}/docker-compose.yml build
+                          docker compose -f ${WORKSPACE}/docker-compose.yml build --no-cache
                         else
-                          docker-compose -f ${WORKSPACE}/docker-compose.yml build
+                          docker-compose -f ${WORKSPACE}/docker-compose.yml build --no-cache
                         fi
                     '''
                 }
@@ -80,9 +80,9 @@ pipeline {
             echo "Cleaning up containers..."
             sh '''
                 if docker compose version > /dev/null 2>&1; then
-                  docker compose -f ${WORKSPACE}/docker-compose.yml down || true
+                  docker compose -f ${WORKSPACE}/docker-compose.yml down -v || true
                 else
-                  docker-compose -f ${WORKSPACE}/docker-compose.yml down || true
+                  docker-compose -f ${WORKSPACE}/docker-compose.yml down -v || true
                 fi
             '''
         }
