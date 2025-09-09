@@ -1,90 +1,56 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image '<dockerhub-username>/jenkins-agent:latest'
+            args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
     options {
-        skipDefaultCheckout(false)
+        buildDiscarder(daysToKeepStr: '30')
+        disableConcurrentBuilds()
         timestamps()
     }
 
+    environment {
+        DOCKER_REGISTRY = '<dockerhub-username>'
+        APP_NAME = 'luxe-jewelry-store'
+    }
+
     stages {
-        stage('Checkout') {
+        stage('Checkout SCM') {
             steps {
-                echo "Checking out code..."
                 checkout scm
             }
         }
 
-        stage('Verify Workspace') {
+        stage('Build app') {
             steps {
-                dir("${WORKSPACE}") {
-                    sh 'pwd'
-                    sh 'ls -la'
+                script {
+                    // Use BUILD_NUMBER or GIT_COMMIT for image tagging
+                    def tag = "${env.BUILD_NUMBER}"
+                    sh """
+                        docker login --username \$DOCKER_REGISTRY --password-stdin < credentials >
+                        docker build -t \$DOCKER_REGISTRY/\$APP_NAME:\$tag ./backend
+                        docker tag \$DOCKER_REGISTRY/\$APP_NAME:\$tag \$DOCKER_REGISTRY/\$APP_NAME:latest
+                        docker push \$DOCKER_REGISTRY/\$APP_NAME:\$tag
+                        docker push \$DOCKER_REGISTRY/\$APP_NAME:latest
+                    """
                 }
             }
         }
 
-        stage('Docker Compose Version') {
+        stage('Run Docker Compose') {
             steps {
-                sh 'docker compose version || docker-compose version'
-            }
-        }
-
-        stage('Build with Docker Compose') {
-            steps {
-                dir("${WORKSPACE}") {
-                    echo "Building Docker images..."
-                    sh '''
-                        if docker compose version > /dev/null 2>&1; then
-                          docker compose -f ${WORKSPACE}/docker-compose.yml build --no-cache
-                        else
-                          docker-compose -f ${WORKSPACE}/docker-compose.yml build --no-cache
-                        fi
-                    '''
-                }
-            }
-        }
-
-        stage('Run Containers') {
-            steps {
-                dir("${WORKSPACE}") {
-                    echo "Starting containers..."
-                    sh '''
-                        if docker compose version > /dev/null 2>&1; then
-                          docker compose -f ${WORKSPACE}/docker-compose.yml up -d
-                        else
-                          docker-compose -f ${WORKSPACE}/docker-compose.yml up -d
-                        fi
-                    '''
-                }
-            }
-        }
-
-        stage('Validate Docker Compose') {
-            steps {
-                dir("${WORKSPACE}") {
-                    echo "Validating docker-compose configuration..."
-                    sh '''
-                        if docker compose version > /dev/null 2>&1; then
-                          docker compose -f ${WORKSPACE}/docker-compose.yml config
-                        else
-                          docker-compose -f ${WORKSPACE}/docker-compose.yml config
-                        fi
-                    '''
-                }
+                sh 'docker compose -f docker-compose.yml up -d --build'
             }
         }
     }
 
     post {
         always {
-            echo "Cleaning up containers..."
-            sh '''
-                if docker compose version > /dev/null 2>&1; then
-                  docker compose -f ${WORKSPACE}/docker-compose.yml down -v || true
-                else
-                  docker-compose -f ${WORKSPACE}/docker-compose.yml down -v || true
-                fi
-            '''
+            // Clean up Docker images to save space
+            sh 'docker compose -f docker-compose.yml down --rmi all -v'
         }
     }
 }
