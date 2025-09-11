@@ -62,6 +62,8 @@ pipeline {
         stage('Build App') {
             steps {
                 script {
+                    // Fix git ownership issue in Docker container
+                    sh 'git config --global --add safe.directory /var/lib/jenkins/workspace/Luxe-Jewelry-Store'
                     // Get git commit hash dynamically
                     def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
                     env.GIT_COMMIT_SHORT = gitCommit
