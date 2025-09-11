@@ -2,17 +2,22 @@ FROM jenkins/agent:latest
 
 USER root
 
-# Install Docker CLI
+# Install Docker
 RUN apt-get update && \
-    apt-get install -y curl git python3 python3-pip docker.io && \
-    curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && \
-    chmod +x /usr/local/bin/docker-compose
+    apt-get install -y \
+    curl \
+    ca-certificates \
+    gnupg \
+    lsb-release && \
+    mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+    echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+    > /etc/apt/sources.list.d/docker.list && \
+    apt-get update && \
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-# Verify installs
+# Optional: verify versions
 RUN docker --version
-RUN docker-compose --version
-RUN python3 --version
-
-USER jenkins
-
+RUN docker compose version
 
