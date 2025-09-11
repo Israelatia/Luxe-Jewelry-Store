@@ -16,15 +16,16 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout SCM') {
             steps {
                 echo "Checking out code from GitHub..."
                 checkout([$class: 'GitSCM',
-                          branches: [[name: '*/main']],
-                          userRemoteConfigs: [[
-                              url: 'https://github.com/Israelatia/Luxe-Jewelry-Store', 
-                              credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542'
-                          ]]
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/Israelatia/Luxe-Jewelry-Store',
+                        credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542'
+                    ]]
                 ])
             }
         }
@@ -35,7 +36,7 @@ pipeline {
                 sh 'aws --version || true'
                 sh 'snyk --version || true'
                 sh 'docker --version || true'
-                sh 'docker compose version || docker-compose version || true'
+                sh 'docker-compose --version || true'
                 sh 'python3 --version || true'
             }
         }
@@ -44,7 +45,7 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'docker-hub',
-                    usernameVariable: 'DOCKER_USER', 
+                    usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
@@ -56,7 +57,7 @@ pipeline {
             steps {
                 dir("${WORKSPACE_DIR}") {
                     echo "Building Docker images..."
-                    sh 'docker compose -f docker-compose.yml build'
+                    sh 'docker-compose -f docker-compose.yml build'
                 }
             }
         }
@@ -65,7 +66,7 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'docker-hub',
-                    usernameVariable: 'DOCKER_USER', 
+                    usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh '''
@@ -83,10 +84,8 @@ pipeline {
             steps {
                 dir("${WORKSPACE_DIR}") {
                     echo "Starting Docker containers..."
-                    sh '''
-                        docker compose -f docker-compose.yml up -d
-                        docker ps
-                    '''
+                    sh 'docker-compose -f docker-compose.yml up -d'
+                    sh 'docker ps'
                 }
             }
         }
