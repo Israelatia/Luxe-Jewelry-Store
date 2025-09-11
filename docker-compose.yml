@@ -8,12 +8,13 @@ services:
     container_name: backend
     ports:
       - "5000:8000"
+    environment:
+      - ENV=dev
 
   front:
     build:
-      context: .                  # repo root
+      context: .
       dockerfile: Dockerfile.nginx
     container_name: front
     ports:
-      - "8081:80"                 # host 8080 -> container 80
-
+      - "8081:80"
