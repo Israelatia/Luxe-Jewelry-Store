@@ -10,10 +10,7 @@ pipeline {
         WORKSPACE_DIR = "${env.WORKSPACE}"
         DOCKER_REGISTRY = "israelatia"
         APP_NAME = "luxe-jewelry-store"
-        GIT_COMMIT_SHORT = "${env.GIT_COMMIT?.take(7) ?: 'unknown'}"
-        VERSION = "${env.BUILD_NUMBER}.${GIT_COMMIT_SHORT}"
         IMAGE_TAG_LATEST = "latest"
-        IMAGE_TAG_VERSION = "${VERSION}"
         IMAGE_TAG_BUILD = "build-${env.BUILD_NUMBER}"
     }
 
@@ -64,6 +61,12 @@ pipeline {
 
         stage('Build App') {
             steps {
+                script {
+                    // Get git commit hash dynamically
+                    def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+                    env.GIT_COMMIT_SHORT = gitCommit
+                    env.IMAGE_TAG_VERSION = "${env.BUILD_NUMBER}.${gitCommit}"
+                }
                 dir("${WORKSPACE_DIR}") {
                     echo "Building application Docker images with multiple tags..."
                     withCredentials([usernamePassword(
@@ -122,28 +125,34 @@ pipeline {
 
     post {
         always {
-            echo "Cleaning up build artifacts and Docker images..."
-            sh '''
-                # Clean up built images from Jenkins server
-                docker rmi ${DOCKER_REGISTRY}/backend:${IMAGE_TAG_LATEST} || true
-                docker rmi ${DOCKER_REGISTRY}/backend:${IMAGE_TAG_VERSION} || true
-                docker rmi ${DOCKER_REGISTRY}/backend:${IMAGE_TAG_BUILD} || true
-                docker rmi ${DOCKER_REGISTRY}/frontend:${IMAGE_TAG_LATEST} || true
-                docker rmi ${DOCKER_REGISTRY}/frontend:${IMAGE_TAG_VERSION} || true
-                docker rmi ${DOCKER_REGISTRY}/frontend:${IMAGE_TAG_BUILD} || true
-                
-                # Clean up docker-compose images
-                docker rmi luxe-jewelry-store_backend:latest || true
-                docker rmi luxe-jewelry-store_front:latest || true
-                
-                # Clean up unused containers, networks, and dangling images
-                docker system prune -f || true
-                
-                echo "Cleanup completed - removed build artifacts from Jenkins server"
-            '''
+            script {
+                try {
+                    echo "Cleaning up build artifacts and Docker images..."
+                    sh '''
+                        # Clean up built images from Jenkins server
+                        docker rmi ${DOCKER_REGISTRY}/backend:${IMAGE_TAG_LATEST} || true
+                        docker rmi ${DOCKER_REGISTRY}/backend:${IMAGE_TAG_VERSION} || true
+                        docker rmi ${DOCKER_REGISTRY}/backend:${IMAGE_TAG_BUILD} || true
+                        docker rmi ${DOCKER_REGISTRY}/frontend:${IMAGE_TAG_LATEST} || true
+                        docker rmi ${DOCKER_REGISTRY}/frontend:${IMAGE_TAG_VERSION} || true
+                        docker rmi ${DOCKER_REGISTRY}/frontend:${IMAGE_TAG_BUILD} || true
+                        
+                        # Clean up docker-compose images
+                        docker rmi luxe-jewelry-store_backend:latest || true
+                        docker rmi luxe-jewelry-store_front:latest || true
+                        
+                        # Clean up unused containers, networks, and dangling images
+                        docker system prune -f || true
+                        
+                        echo "Cleanup completed - removed build artifacts from Jenkins server"
+                    '''
+                } catch (Exception e) {
+                    echo "Cleanup failed: ${e.getMessage()}"
+                }
+            }
         }
         success {
-            echo "Pipeline completed successfully! Images tagged with: latest, ${VERSION}, build-${BUILD_NUMBER}"
+            echo "Pipeline completed successfully! Images tagged with: latest, ${env.IMAGE_TAG_VERSION ?: 'unknown'}, build-${BUILD_NUMBER}"
         }
         failure {
             echo "Pipeline failed. Check logs above."
