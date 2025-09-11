@@ -1,19 +1,13 @@
-# Use a lightweight Linux image
-FROM ubuntu:22.04
+FROM jenkins/agent:latest
 
-# Install basic tools
-RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    openjdk-11-jdk \
-    maven \
-    python3 \
-    python3-pip \
-    docker.io \
-    && apt-get clean
+USER root
 
-# Set default workdir
-WORKDIR /workspace
+# Install docker-compose
+RUN apt-get update && \
+    apt-get install -y curl && \
+    curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && \
+    chmod +x /usr/local/bin/docker-compose
 
-# Default command
-CMD ["sleep", "infinity"]
+# Optional: verify
+RUN docker-compose --version
+
