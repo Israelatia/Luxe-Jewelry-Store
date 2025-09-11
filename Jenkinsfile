@@ -70,10 +70,10 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh '''
-                        docker tag backend $DOCKER_USER/backend:latest
+                        docker tag luxe-jewelry-store_backend:latest $DOCKER_USER/backend:latest
                         docker push $DOCKER_USER/backend:latest
 
-                        docker tag front $DOCKER_USER/front:latest
+                        docker tag luxe-jewelry-store_front:latest $DOCKER_USER/front:latest
                         docker push $DOCKER_USER/front:latest
                     '''
                 }
