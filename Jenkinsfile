@@ -1,7 +1,7 @@
 pipeline {
     agent {
         docker {
-            image 'israelatia/jenkins-agent:latest'   // your custom agent image
+            image 'israelatia/jenkins-agent:latest'
             args '-u root:root -v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
@@ -13,7 +13,6 @@ pipeline {
     options {
         skipDefaultCheckout()
         timestamps()
-        ansiColor('xterm')
     }
 
     stages {
@@ -44,7 +43,7 @@ pipeline {
         stage('Docker Login') {
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId: 'docker-hub',     // DockerHub Jenkins credential ID
+                    credentialsId: 'docker-hub',
                     usernameVariable: 'DOCKER_USER', 
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
