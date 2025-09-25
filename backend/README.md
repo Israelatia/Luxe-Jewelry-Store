@@ -52,6 +52,7 @@ FastAPI automatically generates interactive API documentation:
 
 ## Data Models
 
+
 ### Product
 - `id`: Unique product identifier
 - `name`: Product name
