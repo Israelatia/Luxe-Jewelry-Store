@@ -1,16 +1,25 @@
-// Load shared library from GitHub
+// Load shared library with custom path
 def sharedLib = library(
     identifier: 'luxe-shared-library@main',
     retriever: legacySCM([
         $class: 'GitSCM',
         userRemoteConfigs: [[url: 'https://github.com/Israelatia/luxe-shared-library.git']],
         branches: [[name: 'main']],
-        extensions: [[
-            $class: 'RelativeTargetDirectory',
-            relativeTargetDir: 'luxe-shared-library'
-        ]]
+        extensions: [
+            [$class: 'RelativeTargetDirectory', relativeTargetDir: 'luxe-shared-library'],
+            [$class: 'SparseCheckoutPaths', sparseCheckoutPaths: [[path: 'luxe-shared-library/vars']]]
+        ]
     ])
 )
+
+// Load the shared library functions
+def buildDockerImage = load 'luxe-shared-library/vars/buildDockerImage.groovy'
+def pushToRegistry = load 'luxe-shared-library/vars/pushToRegistry.groovy'
+def runSecurityScan = load 'luxe-shared-library/vars/runSecurityScan.groovy'
+def runTests = load 'luxe-shared-library/vars/runTests.groovy'
+def runCodeQuality = load 'luxe-shared-library/vars/runCodeQuality.groovy'
+def deployApplication = load 'luxe-shared-library/vars/deployApplication.groovy'
+def notifySlack = load 'luxe-shared-library/vars/notifySlack.groovy'
 
 // Main pipeline
 pipeline {
