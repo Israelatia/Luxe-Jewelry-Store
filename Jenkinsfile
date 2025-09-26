@@ -1,4 +1,5 @@
 @Library('luxe-shared-library@main') _
+import static com.luxe.*
 
 // Main pipeline
 pipeline {
