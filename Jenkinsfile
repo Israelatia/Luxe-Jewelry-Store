@@ -1,5 +1,5 @@
 @Library('luxe-shared-library@main') _
-import static com.luxe.*
+// Shared library is now available
 
 // Main pipeline
 pipeline {
