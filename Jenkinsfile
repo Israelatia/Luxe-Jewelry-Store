@@ -228,15 +228,6 @@ pipeline {
                 }
             }
         }
-    }
-                    branches: [[name: '*/main']],
-                    userRemoteConfigs: [[
-                        url: 'https://github.com/Israelatia/Luxe-Jewelry-Store',
-                        credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542'
-                    ]]
-                ])
-            }
-        }
 
         stage('Verify Tools') {
             steps {
