@@ -1,5 +1,4 @@
-@Library('luxe-shared-library@main') _
-// Shared library is now available
+@Library('luxe-shared-library@main/luxe-shared-library') _
 
 // Main pipeline
 pipeline {
