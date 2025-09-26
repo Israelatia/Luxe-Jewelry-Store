@@ -1,8 +1,5 @@
 @Library('luxe-shared-library@main') _
 
-// Load shared library
-@Library('luxe-shared-library@main') _
-
 // Main pipeline
 pipeline {
     agent {
@@ -75,7 +72,17 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/Israelatia/Luxe-Jewelry-Store',
+                        credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542'
+                    ]],
+                    extensions: [[
+                        $class: 'CleanBeforeCheckout'
+                    ]]
+                ])
             }
         }
         
@@ -452,6 +459,26 @@ pipeline {
                 reportName: 'Coverage Report',
                 reportTitles: 'Code Coverage'
             ])
+            
+            // Clean up Docker resources
+            script {
+                sh '''
+                    # Clean up containers
+                    docker ps -aq | xargs -r docker rm -f || true
+                    
+                    # Clean up images
+                    docker images -q | xargs -r docker rmi -f || true
+                    
+                    # Clean up volumes
+                    docker volume prune -f || true
+                    
+                    # Clean up network
+                    docker network prune -f || true
+                    
+                    # Clean up system
+                    docker system prune -a --volumes -f || true
+                '''
+            }
             
             // Clean up workspace
             cleanWs()
