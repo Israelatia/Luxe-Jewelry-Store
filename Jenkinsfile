@@ -1,25 +1,46 @@
-// Load shared library with custom path
-def sharedLib = library(
-    identifier: 'luxe-shared-library@main',
-    retriever: legacySCM([
+// Download and load shared library files from GitHub
+node {
+    // Clean workspace
+    deleteDir()
+    
+    // Clone the shared library
+    checkout([
         $class: 'GitSCM',
-        userRemoteConfigs: [[url: 'https://github.com/Israelatia/luxe-shared-library.git']],
         branches: [[name: 'main']],
-        extensions: [
-            [$class: 'RelativeTargetDirectory', relativeTargetDir: 'luxe-shared-library'],
-            [$class: 'SparseCheckoutPaths', sparseCheckoutPaths: [[path: 'luxe-shared-library/vars']]]
-        ]
+        extensions: [[
+            $class: 'SparseCheckoutPaths',
+            sparseCheckoutPaths: [[path: 'luxe-shared-library/vars/']]
+        ]],
+        userRemoteConfigs: [[
+            url: 'https://github.com/Israelatia/luxe-shared-library.git',
+            credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542'
+        ]]
     ])
-)
-
-// Load the shared library functions
-def buildDockerImage = load 'luxe-shared-library/vars/buildDockerImage.groovy'
-def pushToRegistry = load 'luxe-shared-library/vars/pushToRegistry.groovy'
-def runSecurityScan = load 'luxe-shared-library/vars/runSecurityScan.groovy'
-def runTests = load 'luxe-shared-library/vars/runTests.groovy'
-def runCodeQuality = load 'luxe-shared-library/vars/runCodeQuality.groovy'
-def deployApplication = load 'luxe-shared-library/vars/deployApplication.groovy'
-def notifySlack = load 'luxe-shared-library/vars/notifySlack.groovy'
+    
+    // Load the shared library functions
+    def sharedLibDir = 'luxe-shared-library/vars'
+    def buildDockerImage = load "${sharedLibDir}/buildDockerImage.groovy"
+    def pushToRegistry = load "${sharedLibDir}/pushToRegistry.groovy"
+    def runSecurityScan = load "${sharedLibDir}/runSecurityScan.groovy"
+    def runTests = load "${sharedLibDir}/runTests.groovy"
+    def runCodeQuality = load "${sharedLibDir}/runCodeQuality.groovy"
+    def deployApplication = load "${sharedLibDir}/deployApplication.groovy"
+    def notifySlack = load "${sharedLibDir}/notifySlack.groovy"
+    
+    // Store the loaded functions in a global map
+    def sharedLib = [
+        buildDockerImage: buildDockerImage,
+        pushToRegistry: pushToRegistry,
+        runSecurityScan: runSecurityScan,
+        runTests: runTests,
+        runCodeQuality: runCodeQuality,
+        deployApplication: deployApplication,
+        notifySlack: notifySlack
+    ]
+    
+    // Make the shared library available to the rest of the pipeline
+    env.SHARED_LIB_LOADED = 'true'
+}
 
 // Main pipeline
 pipeline {
