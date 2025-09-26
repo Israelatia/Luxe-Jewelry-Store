@@ -66,6 +66,7 @@ class PasswordChange(BaseModel):
 # In-memory user storage (in production, use a database)
 users_db = {}
 
+
 # Utility Functions
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt"""
