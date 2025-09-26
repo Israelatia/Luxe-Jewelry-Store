@@ -1,26 +1,16 @@
-// Load shared library from subdirectory
-library(
+// Load shared library from GitHub
+def sharedLib = library(
     identifier: 'luxe-shared-library@main',
-    retriever: modernSCM([
-        $class: 'GitSCMSource',
-        credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542',
-        remote: 'https://github.com/Israelatia/luxe-shared-library.git',
-        traits: [
-            [$class: 'jenkins.plugins.git.traits.BranchDiscoveryTrait()'],
-            [$class: 'jenkins.plugins.git.traits.SubmoduleOptionTrait', extensions: [[$class: 'SubmoduleOption', disableSubmodules: false, parentCredentials: true, recursiveSubmodules: true, reference: '', trackingSubmodules: false]]],
-            [$class: 'jenkins.plugins.git.traits.LocalBranchTrait', localBranch: 'main']
-        ]
+    retriever: legacySCM([
+        $class: 'GitSCM',
+        userRemoteConfigs: [[url: 'https://github.com/Israelatia/luxe-shared-library.git']],
+        branches: [[name: 'main']],
+        extensions: [[
+            $class: 'RelativeTargetDirectory',
+            relativeTargetDir: 'luxe-shared-library'
+        ]]
     ])
-) {
-    libraryResource 'luxe-shared-library/vars/buildDockerImage.groovy'
-    libraryResource 'luxe-shared-library/vars/pushToRegistry.groovy'
-    libraryResource 'luxe-shared-library/vars/runSecurityScan.groovy'
-    libraryResource 'luxe-shared-library/vars/runTests.groovy'
-    libraryResource 'luxe-shared-library/vars/runCodeQuality.groovy'
-    libraryResource 'luxe-shared-library/vars/deployApplication.groovy'
-    libraryResource 'luxe-shared-library/vars/notifySlack.groovy'
-    libraryResource 'luxe-shared-library/vars/setupPipelineTriggers.groovy'
-}
+)
 
 // Main pipeline
 pipeline {
