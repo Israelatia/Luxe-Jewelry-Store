@@ -453,22 +453,32 @@ pipeline {
             
             // Clean up Docker resources
             script {
-                sh '''
-                    # Clean up containers
-                    docker ps -aq | xargs -r docker rm -f || true
-                    
-                    # Clean up images
-                    docker images -q | xargs -r docker rmi -f || true
-                    
-                    # Clean up volumes
-                    docker volume prune -f || true
-                    
-                    # Clean up network
-                    docker network prune -f || true
-                    
-                    # Clean up system
-                    docker system prune -a --volumes -f || true
-                '''
+                try {
+                    echo "🧹 Cleaning up build artifacts..."
+                    sh '''
+                        # Clean up application images
+                        docker rmi ${APP_NAME}-backend:latest || true
+                        docker rmi ${APP_NAME}-frontend:latest || true
+                        
+                        # Clean up containers
+                        docker ps -aq | xargs -r docker rm -f || true
+                        
+                        # Clean up images
+                        docker images -q | xargs -r docker rmi -f || true
+                        
+                        # Clean up volumes
+                        docker volume prune -f || true
+                        
+                        # Clean up network
+                        docker network prune -f || true
+                        
+                        # Clean up system
+                        docker system prune -a --volumes -f || true
+                        docker builder prune -f || true
+                    '''
+                } catch (Exception e) {
+                    echo "⚠️ Cleanup failed: ${e.getMessage()}"
+                }
             }
             
             // Clean up workspace
@@ -483,6 +493,11 @@ pipeline {
                     color: 'good',
                     includeBuildInfo: true
                 )
+                echo "🎉 Pipeline completed successfully!"
+                echo "📊 Deployment Summary:"
+                echo "  🌍 Environment: ${params.DEPLOY_ENVIRONMENT}"
+                echo "  📦 Registry: ${params.PUSH_TO_DOCKERHUB ? 'Docker Hub' : ''} ${params.PUSH_TO_NEXUS ? 'Nexus' : ''}"
+                echo "  ✅ All stages passed"
             }
         }
         
@@ -494,43 +509,10 @@ pipeline {
                     color: 'danger',
                     includeBuildInfo: true
                 )
+                echo "❌ Pipeline failed. Check logs for details."
             }
         }
-    }
-                // Cleanup Docker images and artifacts
-                try {
-                    echo "🧹 Cleaning up build artifacts..."
-                    sh '''
-                        # Clean up application images
-                        docker rmi ${APP_NAME}-backend:latest || true
-                        docker rmi ${APP_NAME}-frontend:latest || true
-                        
-                        # Clean up system resources
-                        docker system prune -f --volumes || true
-                        docker builder prune -f || true
-                    '''
-                } catch (Exception e) {
-                    echo "⚠️ Cleanup failed: ${e.getMessage()}"
-                }
-                
-                // Send Slack notification
-                notifySlack([
-                    status: currentBuild.result ?: 'success',
-                    channel: '#ci-cd',
-                    includeDetails: true
-                ])
-            }
-        } //1232
-        success {
-            echo "🎉 Pipeline completed successfully!"
-            echo "📊 Deployment Summary:"
-            echo "  🌍 Environment: ${DEPLOY_ENV}"
-            echo "  📦 Registry: ${params.PUSH_TO_DOCKERHUB ? 'Docker Hub' : ''} ${params.PUSH_TO_NEXUS ? 'Nexus' : ''}"
-            echo "  ✅ All stages passed"
-        }
-        failure {
-            echo "❌ Pipeline failed. Check logs for details."
-        }
+        
         unstable {
             echo "⚠️ Pipeline completed with warnings."
         }
