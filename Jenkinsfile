@@ -1,4 +1,11 @@
-@Library('luxe-shared-library@main') _
+// Load shared library directly
+library identifier: 'luxe-shared-library@main',
+       retriever: modernSCM([
+           $class: 'GitSCMSource',
+           credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542',
+           remote: 'https://github.com/Israelatia/luxe-shared-library.git',
+           traits: [[$class: 'jenkins.plugins.git.traits.BranchDiscoveryTrait']]
+       ])
 
 // Main pipeline
 pipeline {
