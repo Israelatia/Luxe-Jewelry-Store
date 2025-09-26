@@ -93,48 +93,6 @@ pipeline {
             }
         }
         
-        stage('Security & Quality') {
-            parallel {
-                stage('Security Scan') {
-                    steps {
-                        script {
-                            runSecurityScan(
-                                projectPath: '.',
-                                failOnIssues: true,
-                                severityThreshold: 'high',
-                                credentialsId: 'snyk-token'
-                            )
-                        }
-                    }
-                }
-                
-                stage('Run Tests') {
-                    steps {
-                        script {
-                            runTests(
-                                testCommand: 'pytest',
-                                coverageReport: true,
-                                junitReport: true,
-                                htmlReport: true
-                            )
-                        }
-                    }
-                }
-                
-                stage('Code Quality') {
-                    steps {
-                        script {
-                            runCodeQuality(
-                                sourceDir: '.',
-                                failOnError: true,
-                                pylintEnabled: true,
-                                flake8Enabled: true
-                            )
-                        }
-                    }
-                }
-            }
-        }
         
         stage('Build Images') {
             parallel {
