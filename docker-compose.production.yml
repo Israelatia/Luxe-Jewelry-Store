@@ -1,0 +1,251 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: luxe-jewelry-store-db
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-luxe_jewelry_store}
+      POSTGRES_USER: ${DATABASE_USER:-luxe_user}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-secure_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - luxe-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-luxe_user} -d ${DATABASE_NAME:-luxe_jewelry_store}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: luxe-jewelry-store-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_password}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - luxe-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend API Service
+  backend:
+    image: ${REGISTRY:-israelatia}/${APP_NAME:-luxe-jewelry-store}-backend:${VERSION:-latest}
+    container_name: luxe-jewelry-store-backend
+    environment:
+      # Database Configuration
+      DATABASE_URL: postgresql://${DATABASE_USER:-luxe_user}:${DATABASE_PASSWORD:-secure_password}@db:5432/${DATABASE_NAME:-luxe_jewelry_store}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379/0
+      
+      # Application Configuration
+      APP_ENV: ${DEPLOY_ENV:-production}
+      DEBUG: "false"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # Security Configuration
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-super-secure-jwt-secret-key}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-your-32-character-encryption-key}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://yourdomain.com}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-yourdomain.com}
+      
+      # External Services
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      
+      # Monitoring
+      SENTRY_DSN: ${SENTRY_DSN}
+      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
+      
+      # Performance
+      WORKERS: ${WORKERS:-4}
+      MAX_CONNECTIONS: ${MAX_CONNECTIONS:-1000}
+      CACHE_TTL: ${CACHE_TTL:-3600}
+    ports:
+      - "8000:8000"
+    networks:
+      - luxe-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Frontend Service
+  frontend:
+    image: ${REGISTRY:-israelatia}/${APP_NAME:-luxe-jewelry-store}-frontend:${VERSION:-latest}
+    container_name: luxe-jewelry-store-frontend
+    environment:
+      BACKEND_URL: http://backend:8000
+      API_BASE_URL: ${API_BASE_URL:-https://api.yourdomain.com}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      GOOGLE_ANALYTICS_ID: ${GOOGLE_ANALYTICS_ID}
+      SENTRY_DSN_FRONTEND: ${SENTRY_DSN_FRONTEND}
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - luxe-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  # Auth Service (Optional - if using separate auth service)
+  auth-service:
+    image: ${REGISTRY:-israelatia}/${APP_NAME:-luxe-jewelry-store}-auth:${VERSION:-latest}
+    container_name: luxe-jewelry-store-auth
+    environment:
+      DATABASE_URL: postgresql://${DATABASE_USER:-luxe_user}:${DATABASE_PASSWORD:-secure_password}@db:5432/${DATABASE_NAME:-luxe_jewelry_store}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-super-secure-jwt-secret-key}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379/1
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "8001:8001"
+    networks:
+      - luxe-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # Nginx Load Balancer (Optional - for multiple backend instances)
+  nginx:
+    image: nginx:alpine
+    container_name: luxe-jewelry-store-nginx
+    volumes:
+      - ./infra/nginx-production.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    ports:
+      - "8080:80"
+      - "8443:443"
+    networks:
+      - luxe-network
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Monitoring - Prometheus (Optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: luxe-jewelry-store-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - luxe-network
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+  # Monitoring - Grafana (Optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: luxe-jewelry-store-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin123}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - luxe-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  nginx_logs:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  luxe-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

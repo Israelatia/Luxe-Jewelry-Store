@@ -1,20 +1,33 @@
-version: "3.9"
+version: "3.8"
 
 services:
   backend:
     build:
       context: ./backend
       dockerfile: infra/Dockerfile.app
-    container_name: backend
+    container_name: luxe-jewelry-store-backend
     ports:
-      - "5000:8000"
+      - "8000:8000"
     environment:
-      - ENV=dev
+      - ENV=development
+      - DEBUG=true
+    networks:
+      - luxe-network
+    restart: unless-stopped
 
-  front:
+  frontend:
     build:
       context: .
       dockerfile: Dockerfile.nginx
-    container_name: front
+    container_name: luxe-jewelry-store-frontend
     ports:
-      - "8081:80"
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - luxe-network
+    restart: unless-stopped
+
+networks:
+  luxe-network:
+    driver: bridge

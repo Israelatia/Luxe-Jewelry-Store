@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  backend:
+    image: ${DEPLOY_REGISTRY:-localhost:8082}/${APP_NAME:-luxe-jewelry-store}-backend:${DEPLOY_TAG:-latest}
+    container_name: ${APP_NAME:-luxe-jewelry-store}-backend-${DEPLOY_ENV:-dev}
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      - ENV=${DEPLOY_ENV:-development}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://auth-service:8001}
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    image: ${DEPLOY_REGISTRY:-localhost:8082}/${APP_NAME:-luxe-jewelry-store}-frontend:${DEPLOY_TAG:-latest}
+    container_name: ${APP_NAME:-luxe-jewelry-store}-frontend-${DEPLOY_ENV:-dev}
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - backend
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - ENV=${DEPLOY_ENV:-development}
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  auth-service:
+    image: ${DEPLOY_REGISTRY:-localhost:8082}/${APP_NAME:-luxe-jewelry-store}-auth:${DEPLOY_TAG:-latest}
+    container_name: ${APP_NAME:-luxe-jewelry-store}-auth-${DEPLOY_ENV:-dev}
+    restart: unless-stopped
+    ports:
+      - "${AUTH_PORT:-8001}:8001"
+    environment:
+      - ENV=${DEPLOY_ENV:-development}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    profiles:
+      - auth
+
+networks:
+  app-network:
+    driver: bridge
+    name: ${APP_NAME:-luxe-jewelry-store}-network-${DEPLOY_ENV:-dev}

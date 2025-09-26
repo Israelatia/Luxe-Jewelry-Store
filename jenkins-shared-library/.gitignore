@@ -1,0 +1,44 @@
+# IDE specific files
+.idea/
+.vscode/
+*.iml
+
+# Build artifacts
+/target/
+/build/
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.venv
+env/
+venv/
+
+# Node modules
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Docker
+.docker/
+.dockerignore
+
+# Jenkins
+workspace/
+build/
+
+# System Files
+.DS_Store
+Thumbs.db

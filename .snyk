@@ -1,0 +1,22 @@
+# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.
+version: v1.25.0
+# ignores vulnerabilities until expiry date; change duration by modifying expiry date
+ignore:
+  # Example: Ignore specific vulnerability ID
+  # SNYK-JS-LODASH-567746:
+  #   - '*':
+  #       reason: 'Not exploitable in our application context'
+  #       expires: '2024-12-31T23:59:59.999Z'
+  
+  # Example: Ignore prototype pollution in lodash
+  # SNYK-JS-LODASH-590103:
+  #   - '*':
+  #       reason: 'Lodash is not used in user-facing code'
+  #       expires: '2024-06-01T00:00:00.000Z'
+
+# patches apply the minimum changes required to fix a vulnerability
+patch: {}
+
+# Language settings
+language-settings:
+  python: 3.8
