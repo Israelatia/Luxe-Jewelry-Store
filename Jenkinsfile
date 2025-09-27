@@ -4,24 +4,29 @@ pipeline {
     agent {
         docker {
             image 'israelatia/luxe-jenkins-agent:latest'
-            args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+            args '--user root -v /var/run/docker.sock:/var/run/docker.sock -e GIT_DISCOVERY_ACROSS_FILESYSTEM=1'
             reuseNode true
+            // Configure Git to trust the workspace directory
+            additionalBuildArgs '--build-arg GIT_SAFE_DIR=/var/lib/jenkins/workspace/Luxe-Jewelry-Store'
         }
     }
     
+    // Set environment variables for the entire pipeline
     environment {
         // Git configuration
-        GIT_SAFE_DIR = 'true'
+        GIT_DISCOVERY_ACROSS_FILESYSTEM = '1'
         
         // Docker registry configuration
         DOCKER_HUB_REGISTRY = 'israelatia'
         NEXUS_REGISTRY = 'localhost:8082'
         DOCKER_REGISTRY = "${params.TARGET_REGISTRY ?: DOCKER_HUB_REGISTRY}"
         APP_NAME = 'luxe-jewelry-store'
-        GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+        
+        // These will be set in the checkout stage
+        GIT_COMMIT_SHORT = ''
         IMAGE_TAG_LATEST = 'latest'
         IMAGE_TAG_BUILD = "build-${env.BUILD_NUMBER}"
-        IMAGE_TAG_COMMIT = "commit-${GIT_COMMIT_SHORT}"
+        IMAGE_TAG_COMMIT = ''
         SEMVER_VERSION = "1.0.${env.BUILD_NUMBER}"
         DEPLOY_ENV = "${params.DEPLOY_ENVIRONMENT ?: 'development'}"
     }
@@ -57,20 +62,33 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                    // Fix Git safe directory issue
-                    sh 'git config --global --add safe.directory ${WORKSPACE}'
-                    
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: '*/main']],
-                        userRemoteConfigs: [[
-                            url: 'https://github.com/Israelatia/Luxe-Jewelry-Store',
-                            credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542'
-                        ]],
-                        extensions: [[
-                            $class: 'CleanBeforeCheckout'
-                        ]]
-                    ])
+                    // Configure Git to trust the workspace directory
+                    sh '''#!/bin/bash -xe
+                        # Configure Git to trust the workspace directory
+                        git config --global --add safe.directory '*'
+                        
+                        # Verify Git configuration
+                        git config --global --list | grep safe.directory
+                        
+                        # Perform the checkout
+                        checkoutResult=$(checkout([
+                            $class: 'GitSCM',
+                            branches: [[name: '*/main']],
+                            userRemoteConfigs: [[
+                                url: 'https://github.com/Israelatia/Luxe-Jewelry-Store',
+                                credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542'
+                            ]],
+                            extensions: [[
+                                $class: 'CleanBeforeCheckout'
+                            ]]
+                        ]))
+                        
+                        # Set Git commit short hash after checkout
+                        env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                        env.IMAGE_TAG_COMMIT = "commit-${env.GIT_COMMIT_SHORT}"
+                        
+                        echo "Checkout completed successfully"
+                    '''.stripIndent()
                 }
             }
         }
