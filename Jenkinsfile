@@ -6,8 +6,6 @@ pipeline {
             image 'israelatia/luxe-jenkins-agent:latest'
             args '--user root -v /var/run/docker.sock:/var/run/docker.sock -e GIT_DISCOVERY_ACROSS_FILESYSTEM=1'
             reuseNode true
-            // Configure Git to trust the workspace directory
-            additionalBuildArgs '--build-arg GIT_SAFE_DIR=/var/lib/jenkins/workspace/Luxe-Jewelry-Store'
         }
     }
     
@@ -66,12 +64,13 @@ pipeline {
                     sh '''#!/bin/bash -xe
                         # Configure Git to trust the workspace directory
                         git config --global --add safe.directory '*'
+                        git config --global --add safe.directory ${WORKSPACE}
                         
                         # Verify Git configuration
                         git config --global --list | grep safe.directory
                         
                         # Perform the checkout
-                        checkoutResult=$(checkout([
+                        checkout([
                             $class: 'GitSCM',
                             branches: [[name: '*/main']],
                             userRemoteConfigs: [[
@@ -81,7 +80,7 @@ pipeline {
                             extensions: [[
                                 $class: 'CleanBeforeCheckout'
                             ]]
-                        ]))
+                        ])
                         
                         # Set Git commit short hash after checkout
                         env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
