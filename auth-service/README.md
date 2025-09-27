@@ -11,6 +11,7 @@ This is the authentication microservice for the Luxe Jewelry Store application, 
 - **Password Security**: Bcrypt password hashing
 - **CORS Support**: Configured for React frontend integration
 
+
 ## API Endpoints
 
 ### Authentication
