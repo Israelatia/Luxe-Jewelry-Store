@@ -1,8 +1,12 @@
 // Define the shared library
-library identifier: 'luxe-shared-library@main', retriever: modernSCM(
-    [$class: 'GitSCMSource',
-     remote: 'https://github.com/Israelatia/luxe-shared-library.git',
-     credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542']
+library(
+    name: 'luxe-shared-library',
+    retriever: modernSCM([
+        $class: 'GitSCMSource',
+        remote: 'https://github.com/Israelatia/luxe-shared-library.git',
+        credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542',
+        traits: [[$class: 'jenkins.plugins.git.traits.BranchDiscoveryTrait']]
+    ])
 )
 
 pipeline {
