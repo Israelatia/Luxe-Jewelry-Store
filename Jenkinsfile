@@ -7,8 +7,6 @@ def lib = luxelib {
 }
 
 // Main pipeline
-
-// Main pipeline
 pipeline {
     agent {
         docker {
@@ -492,5 +490,3 @@ pipeline {
             echo "⚠️ Pipeline completed with warnings."
         }
     }
-}
-
