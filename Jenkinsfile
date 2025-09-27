@@ -10,8 +10,20 @@ pipeline {
     }
     
     environment {
-        // Fix Git safe directory issue
+        // Git configuration
         GIT_SAFE_DIR = 'true'
+        
+        // Docker registry configuration
+        DOCKER_HUB_REGISTRY = 'israelatia'
+        NEXUS_REGISTRY = 'localhost:8082'
+        DOCKER_REGISTRY = "${params.TARGET_REGISTRY ?: DOCKER_HUB_REGISTRY}"
+        APP_NAME = 'luxe-jewelry-store'
+        GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+        IMAGE_TAG_LATEST = 'latest'
+        IMAGE_TAG_BUILD = "build-${env.BUILD_NUMBER}"
+        IMAGE_TAG_COMMIT = "commit-${GIT_COMMIT_SHORT}"
+        SEMVER_VERSION = "1.0.${env.BUILD_NUMBER}"
+        DEPLOY_ENV = "${params.DEPLOY_ENVIRONMENT ?: 'development'}"
     }
     
     options {
@@ -39,19 +51,6 @@ pipeline {
             defaultValue: true,
             description: 'Push images to Docker Hub'
         )
-    }
-
-    environment {
-        DOCKER_HUB_REGISTRY = 'israelatia'
-        NEXUS_REGISTRY = 'localhost:8082'
-        DOCKER_REGISTRY = "${params.TARGET_REGISTRY ?: DOCKER_HUB_REGISTRY}"
-        APP_NAME = 'luxe-jewelry-store'
-        GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-        IMAGE_TAG_LATEST = 'latest'
-        IMAGE_TAG_BUILD = "build-${env.BUILD_NUMBER}"
-        IMAGE_TAG_COMMIT = "commit-${GIT_COMMIT_SHORT}"
-        SEMVER_VERSION = "1.0.${env.BUILD_NUMBER}"
-        DEPLOY_ENV = "${params.DEPLOY_ENVIRONMENT ?: 'development'}"
     }
 
     stages {
