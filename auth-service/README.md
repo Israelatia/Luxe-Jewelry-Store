@@ -13,6 +13,7 @@ This is the authentication microservice for the Luxe Jewelry Store application, 
 
 
 
+
 ## API Endpoints
 
 ### Authentication
