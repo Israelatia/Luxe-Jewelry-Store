@@ -68,26 +68,26 @@ pipeline {
                         
                         # Verify Git configuration
                         git config --global --list | grep safe.directory
-                        
-                        # Perform the checkout
-                        checkout([
-                            $class: 'GitSCM',
-                            branches: [[name: '*/main']],
-                            userRemoteConfigs: [[
-                                url: 'https://github.com/Israelatia/Luxe-Jewelry-Store',
-                                credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542'
-                            ]],
-                            extensions: [[
-                                $class: 'CleanBeforeCheckout'
-                            ]]
-                        ])
-                        
-                        # Set Git commit short hash after checkout
-                        env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                        env.IMAGE_TAG_COMMIT = "commit-${env.GIT_COMMIT_SHORT}"
-                        
-                        echo "Checkout completed successfully"
                     '''.stripIndent()
+                    
+                    // Perform the checkout using Jenkins checkout step
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        userRemoteConfigs: [[
+                            url: 'https://github.com/Israelatia/Luxe-Jewelry-Store',
+                            credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542'
+                        ]],
+                        extensions: [[
+                            $class: 'CleanBeforeCheckout'
+                        ]]
+                    ])
+                    
+                    // Set Git commit short hash after checkout
+                    env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    env.IMAGE_TAG_COMMIT = "commit-${env.GIT_COMMIT_SHORT}"
+                    
+                    echo 'Checkout completed successfully'
                 }
             }
         }
