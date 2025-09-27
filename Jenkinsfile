@@ -1,5 +1,9 @@
-// Load the shared library
-@Library('luxe-shared-library@main') _
+// Define the shared library
+library identifier: 'luxe-shared-library@main', retriever: modernSCM(
+    [$class: 'GitSCMSource',
+     remote: 'https://github.com/Israelatia/luxe-shared-library.git',
+     credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542']
+)
 
 pipeline {
     agent {
