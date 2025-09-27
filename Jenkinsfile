@@ -1,46 +1,12 @@
-// Download and load shared library files from GitHub
-node {
-    // Clean workspace
-    deleteDir()
-    
-    // Clone the shared library
-    checkout([
-        $class: 'GitSCM',
-        branches: [[name: 'main']],
-        extensions: [[
-            $class: 'SparseCheckoutPaths',
-            sparseCheckoutPaths: [[path: 'luxe-shared-library/vars/']]
-        ]],
-        userRemoteConfigs: [[
-            url: 'https://github.com/Israelatia/luxe-shared-library.git',
-            credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542'
-        ]]
-    ])
-    
-    // Load the shared library functions
-    def sharedLibDir = 'luxe-shared-library/vars'
-    def buildDockerImage = load "${sharedLibDir}/buildDockerImage.groovy"
-    def pushToRegistry = load "${sharedLibDir}/pushToRegistry.groovy"
-    def runSecurityScan = load "${sharedLibDir}/runSecurityScan.groovy"
-    def runTests = load "${sharedLibDir}/runTests.groovy"
-    def runCodeQuality = load "${sharedLibDir}/runCodeQuality.groovy"
-    def deployApplication = load "${sharedLibDir}/deployApplication.groovy"
-    def notifySlack = load "${sharedLibDir}/notifySlack.groovy"
-    
-    // Store the loaded functions in a global map
-    def sharedLib = [
-        buildDockerImage: buildDockerImage,
-        pushToRegistry: pushToRegistry,
-        runSecurityScan: runSecurityScan,
-        runTests: runTests,
-        runCodeQuality: runCodeQuality,
-        deployApplication: deployApplication,
-        notifySlack: notifySlack
-    ]
-    
-    // Make the shared library available to the rest of the pipeline
-    env.SHARED_LIB_LOADED = 'true'
+// Load the shared library
+@Library('luxe-shared-library@main') _
+
+// Initialize the shared library
+def lib = luxelib {
+    // Any configuration can go here
 }
+
+// Main pipeline
 
 // Main pipeline
 pipeline {
@@ -50,6 +16,10 @@ pipeline {
             args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
             reuseNode true
         }
+    }
+    
+    options {
+        skipDefaultCheckout true
     }
     
     parameters {
@@ -439,7 +409,12 @@ pipeline {
 
     post {
         always {
-            // Archive test results and coverage reports
+            // Fix git safe directory issue
+            sh 'git config --global --add safe.directory ${WORKSPACE}'
+            
+            // Ensure we're in a node context for JUnit
+            node {
+                // Archive test results and coverage reports
             junit '**/test-results/**/*.xml'
             publishHTML([
                 allowMissing: true,
