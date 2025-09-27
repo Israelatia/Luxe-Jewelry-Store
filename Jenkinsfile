@@ -9,6 +9,11 @@ pipeline {
         }
     }
     
+    environment {
+        // Fix Git safe directory issue
+        GIT_SAFE_DIR = 'true'
+    }
+    
     options {
         skipDefaultCheckout true
     }
@@ -52,25 +57,34 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: '*/main']],
-                    userRemoteConfigs: [[
-                        url: 'https://github.com/Israelatia/Luxe-Jewelry-Store',
-                        credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542'
-                    ]],
-                    extensions: [[
-                        $class: 'CleanBeforeCheckout'
-                    ]]
-                ])
+                script {
+                    // Fix Git safe directory issue
+                    sh 'git config --global --add safe.directory ${WORKSPACE}'
+                    
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        userRemoteConfigs: [[
+                            url: 'https://github.com/Israelatia/Luxe-Jewelry-Store',
+                            credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542'
+                        ]],
+                        extensions: [[
+                            $class: 'CleanBeforeCheckout'
+                        ]]
+                    ])
+                }
             }
         }
     }
     
     post {
         always {
-            // Clean up workspace
-            cleanWs()
+            script {
+                // Clean up workspace only if in a node context
+                if (env.NODE_NAME) {
+                    cleanWs()
+                }
+            }
         }
         success {
             echo '✅ Pipeline completed successfully!'
