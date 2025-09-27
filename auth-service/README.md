@@ -12,8 +12,6 @@ This is the authentication microservice for the Luxe Jewelry Store application, 
 - **CORS Support**: Configured for React frontend integration
 
 
-
-
 ## API Endpoints
 
 ### Authentication
