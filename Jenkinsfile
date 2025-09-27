@@ -1,9 +1,5 @@
+// Load the shared library
 @Library('luxe-shared-library@main') _
-
-// Initialize the shared library
-def lib = luxelib {
-    // Any configuration can go here
-}
 
 pipeline {
     agent {
