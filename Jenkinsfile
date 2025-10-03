@@ -119,7 +119,7 @@ pipeline {
                                     "${DOCKER_REGISTRY}/${APP_NAME}-frontend:${SEMVER_VERSION}"
                                 ],
                                 severityThreshold: 'high',
-                                credentialsId: 'snyk-token',
+                                credentialsId: 'bfce6570-2604-4dae-8171-b6159ca1ff4c',
                                 failOnIssues: false
                             )
                         }
