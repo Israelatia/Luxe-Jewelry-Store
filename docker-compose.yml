@@ -1,18 +1,27 @@
-version: "3.8"
+version: '3.9'
 
 services:
-  backend:
-    build: ./backend
-    container_name: backend
-    ports:
-      - "5000:5000"
-    image: backend-image:1.0
-
   frontend:
-    build: ./frontend
-    container_name: frontend
+    image: front-image
+    container_name: luxe_frontend
     ports:
-      - "8080:80"
+      - "8081:80"
     depends_on:
       - backend
-    image: front-image:1.0
+    networks:
+      - luxe-network
+
+  backend:
+    image: backend-image
+    container_name: luxe_backend
+    ports:
+      - "5000:5000"
+    environment:
+      # Example environment variables
+      APP_ENV: development
+    networks:
+      - luxe-network
+
+networks:
+  luxe-network:
+    driver: bridge
