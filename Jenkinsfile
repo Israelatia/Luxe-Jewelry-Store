@@ -119,7 +119,7 @@ pipeline {
                                     "${DOCKER_REGISTRY}/${APP_NAME}-frontend:${SEMVER_VERSION}"
                                 ],
                                 severityThreshold: 'high',
-                                credentialsId: 'bfce6570-2604-4dae-8171-b6159ca1ff4c',
+                                credentialsId: 'synk-token',
                                 failOnIssues: false
                             )
                         }
@@ -152,7 +152,7 @@ pipeline {
                                 pushToRegistry(
                                     imageName: "${NEXUS_REGISTRY}/${APP_NAME}-backend",
                                     tags: [SEMVER_VERSION],
-                                    credentialsId: 'nexus-docker',
+                                    credentialsId: 'nexus-cred',
                                     registry: NEXUS_REGISTRY
                                 )
                             }
