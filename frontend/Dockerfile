@@ -1,31 +1,17 @@
-# Build stage
-FROM node:16 AS build
+# Base image
+FROM nginx:1.25-alpine
 
-WORKDIR /app
+# Remove default config
+RUN rm /etc/nginx/conf.d/default.conf
 
-# Copy package files
-COPY package*.json ./
+# Copy our custom config
+COPY nginx.conf /etc/nginx/conf.d/
 
-# Install dependencies
-RUN npm install
+# Copy website files
+COPY website/ /usr/share/nginx/html/
 
-# Copy source code
-COPY . .
-
-# Build the app
-RUN npm run build
-
-# Production stage
-FROM nginx:alpine
-
-# Copy nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Copy built files from build stage
-COPY --from=build /app/build /usr/share/nginx/html
-
-# Expose port 80
+# Expose frontend port
 EXPOSE 80
 
-# Start Nginx
+# Run Nginx
 CMD ["nginx", "-g", "daemon off;"]
