@@ -34,7 +34,6 @@ pipeline {
     }
 
     parameters {
-        // Choice parameters: first option is the default
         choice(
             name: 'TARGET_REGISTRY',
             choices: ['docker.io', 'localhost:8082'],
@@ -45,7 +44,6 @@ pipeline {
             choices: ['development', 'staging', 'production', 'none'],
             description: 'Target environment for deployment'
         )
-        // Boolean parameters
         booleanParam(
             name: 'PUSH_TO_NEXUS',
             defaultValue: true,
@@ -79,6 +77,20 @@ pipeline {
                     ])
                     env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
                     env.IMAGE_TAG_COMMIT = "commit-${env.GIT_COMMIT_SHORT}"
+                }
+            }
+        }
+
+        stage('Frontend Setup') {
+            steps {
+                dir('frontend') {
+                    script {
+                        echo "📦 Installing frontend dependencies..."
+                        sh 'npm install'
+
+                        echo "🛠️ Building frontend..."
+                        sh 'npm run build'
+                    }
                 }
             }
         }
@@ -212,38 +224,3 @@ pipeline {
 
     post {
         always {
-            script {
-                echo "🧹 Cleaning up Docker resources..."
-                sh '''
-                    docker system prune -af || true
-                    docker volume prune -f || true
-                '''
-                cleanWs()
-            }
-        }
-        success {
-            echo "✅ Pipeline succeeded!"
-            notifySlack(
-                status: 'success',
-                channel: '#ci-cd',
-                message: "Pipeline #${env.BUILD_NUMBER} completed successfully!"
-            )
-        }
-        failure {
-            echo "❌ Pipeline failed!"
-            notifySlack(
-                status: 'failure',
-                channel: '#ci-cd',
-                message: "Pipeline #${env.BUILD_NUMBER} failed! Check the logs for details."
-            )
-        }
-        unstable {
-            echo "⚠️ Pipeline completed with warnings"
-            notifySlack(
-                status: 'unstable',
-                channel: '#ci-cd',
-                message: "Pipeline #${env.BUILD_NUMBER} completed with warnings."
-            )
-        }
-    }
-}
