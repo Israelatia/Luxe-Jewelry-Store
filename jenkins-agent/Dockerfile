@@ -1,13 +1,17 @@
 FROM jenkins/agent
 
-# Switch to root to install packages
+# Switch to root to install dependencies
 USER root
 
-# Install Python3, pip, curl
-RUN apt-get update && apt-get install -y python3 python3-pip curl
+# Install Python3, pip, Node.js, npm, curl, and Docker CLI
+RUN apt-get update && apt-get install -y \
+    python3 python3-pip \
+    curl gnupg lsb-release \
+    docker.io \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js and npm (Node 20 example)
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+# Install Node.js (latest LTS)
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g npm@latest
 
@@ -19,3 +23,6 @@ RUN mkdir /snyk && cd /snyk \
 
 # Switch back to Jenkins user
 USER jenkins
+
+# Make sure Docker CLI works for Jenkins
+ENV DOCKER_HOST=unix:///var/run/docker.sock
