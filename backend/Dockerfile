@@ -1,17 +1,17 @@
-# Base image
-FROM nginx:1.25-alpine
+FROM python:3.11-slim
 
-# Remove default config
-RUN rm /etc/nginx/conf.d/default.conf
+WORKDIR /app
 
-# Copy our custom config
-COPY nginx.conf /etc/nginx/conf.d/
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy website files
-COPY website/ /usr/share/nginx/html/
+# Copy app code
+COPY . .
 
-# Expose frontend port
-EXPOSE 80
+# Expose port your app runs on
+EXPOSE 5000
 
-# Run Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start app
+CMD ["python", "main.py"]
+
