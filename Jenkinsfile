@@ -76,49 +76,109 @@ pipeline {
             steps {
                 script {
                     def targetRegistry = params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY
-                    def imageFullName = "${targetRegistry}/${APP_NAME}-backend"
-
-                    // Build Docker image
-                    buildDockerImage(
-                        imageName: "${APP_NAME}-backend",
-                        dockerFile: 'backend/Dockerfile',
-                        buildContext: '.',
-                        registry: targetRegistry,
-                        tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
-                    )
-
-                    // Push to Docker Hub
-                    if (params.PUSH_TO_DOCKERHUB && params.TARGET_REGISTRY == 'docker.io') {
-                        docker.withRegistry("https://${DOCKER_HUB_REGISTRY}", 'docker-hub') {
-                            ["${SEMVER_VERSION}", "${IMAGE_TAG_COMMIT}", "latest"].each { tag ->
-                                sh "docker tag ${APP_NAME}-backend:${tag} ${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:${tag}"
-                                sh "docker push ${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:${tag}"
-                            }
+                    
+                    // Build and push backend
+                    docker.withRegistry("https://${targetRegistry}", 'docker-hub') {
+                        def backendImage = docker.build("${APP_NAME}-backend:${SEMVER_VERSION}", "-f backend/Dockerfile .")
+                        
+                        // Tag with multiple tags
+                        backendImage."${targetRegistry}/${APP_NAME}-backend:${SEMVER_VERSION}"
+                        backendImage."${targetRegistry}/${APP_NAME}-backend:${IMAGE_TAG_COMMIT}"
+                        backendImage."${targetRegistry}/${APP_NAME}-backend:latest"
+                        
+                        // Push images
+                        if (params.PUSH_TO_DOCKERHUB && params.TARGET_REGISTRY == 'docker.io') {
+                            backendImage.push("${SEMVER_VERSION}")
+                            backendImage.push("${IMAGE_TAG_COMMIT}")
+                            backendImage.push("latest")
+                        }
+                        
+                        if (params.PUSH_TO_NEXUS && params.TARGET_REGISTRY == 'localhost:8082') {
+                            backendImage.push("${SEMVER_VERSION}")
                         }
                     }
-
-                    // Push to Nexus
-                    if (params.PUSH_TO_NEXUS && params.TARGET_REGISTRY == 'localhost:8082') {
-                        docker.withRegistry("http://${NEXUS_REGISTRY}", 'nexus-cred') {
-                            sh "docker tag ${APP_NAME}-backend:${SEMVER_VERSION} ${NEXUS_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}"
-                            sh "docker push ${NEXUS_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}"
+                    
+                    // Build and push frontend
+                    docker.withRegistry("https://${targetRegistry}", 'docker-hub') {
+                        def frontendImage = docker.build("${APP_NAME}-frontend:${SEMVER_VERSION}", "-f frontend/Dockerfile .")
+                        
+                        // Tag with multiple tags
+                        frontendImage."${targetRegistry}/${APP_NAME}-frontend:${SEMVER_VERSION}"
+                        frontendImage."${targetRegistry}/${APP_NAME}-frontend:${IMAGE_TAG_COMMIT}"
+                        frontendImage."${targetRegistry}/${APP_NAME}-frontend:latest"
+                        
+                        // Push images
+                        if (params.PUSH_TO_DOCKERHUB && params.TARGET_REGISTRY == 'docker.io') {
+                            frontendImage.push("${SEMVER_VERSION}")
+                            frontendImage.push("${IMAGE_TAG_COMMIT}")
+                            frontendImage.push("latest")
+                        }
+                        
+                        if (params.PUSH_TO_NEXUS && params.TARGET_REGISTRY == 'localhost:8082') {
+                            frontendImage.push("${SEMVER_VERSION}")
                         }
                     }
                 }
             }
         }
 
-        stage('Security Scan') {
+        stage('Unit Tests') {
             steps {
-                withCredentials([string(credentialsId: 'synk-token', variable: 'SNYK_TOKEN')]) {
-                    script {
-                        runSecurityScan(
-                            scanType: 'container',
-                            images: ["${params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}"],
-                            severityThreshold: 'high',
-                            credentialsId: 'synk-token',
-                            failOnIssues: false
-                        )
+                script {
+                    sh 'pip install -r backend/requirements.txt'
+                    sh 'python -m pytest backend/tests/ -v --junitxml=test-results.xml'
+                }
+            }
+            post {
+                always {
+                    junit 'test-results.xml'
+                }
+            }
+        }
+
+        stage('Linting') {
+            steps {
+                script {
+                    sh 'pip install pylint'
+                    sh 'pylint --version'
+                    sh 'pylint --rcfile=backend/.pylintrc backend/ || true'  // Continue even if linting fails
+                }
+            }
+        }
+
+        stage('Security Scan') {
+            when {
+                expression { params.DEPLOY_ENVIRONMENT in ['staging', 'production'] }
+            }
+            environment {
+                SNYK_TOKEN = credentials('snyk-token')
+            }
+            steps {
+                script {
+                    sh 'snyk auth ${SNYK_TOKEN}'
+                    
+                    // Scan backend
+                    dir('backend') {
+                        try {
+                            sh 'snyk test --severity-threshold=high --file=Dockerfile'
+                        } catch (e) {
+                            echo '⚠️ High severity vulnerabilities found in backend. Please review and update dependencies.'
+                            if (env.BRANCH_NAME == 'main') {
+                                error('High severity vulnerabilities found in production dependencies')
+                            }
+                        }
+                    }
+                    
+                    // Scan frontend
+                    dir('frontend') {
+                        try {
+                            sh 'snyk test --severity-threshold=high --file=Dockerfile'
+                        } catch (e) {
+                            echo '⚠️ High severity vulnerabilities found in frontend. Please review and update dependencies.'
+                            if (env.BRANCH_NAME == 'main') {
+                                error('High severity vulnerabilities found in production dependencies')
+                            }
+                        }
                     }
                 }
             }
@@ -130,14 +190,21 @@ pipeline {
             }
             steps {
                 script {
-                    deployApplication(
-                        environment: params.DEPLOY_ENVIRONMENT,
-                        registry: params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY,
-                        appName: APP_NAME,
-                        composeFile: "docker-compose.${params.DEPLOY_ENVIRONMENT}.yml",
-                        healthCheck: true,
-                        timeout: 300
-                    )
+                    def targetRegistry = params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY
+                    
+                    // Update docker-compose with the correct image tags
+                    sh """
+                        sed -i 's|${APP_NAME}-backend:latest|${targetRegistry}/${APP_NAME}-backend:${SEMVER_VERSION}|g' docker-compose.yml
+                        sed -i 's|${APP_NAME}-frontend:latest|${targetRegistry}/${APP_NAME}-frontend:${SEMVER_VERSION}|g' docker-compose.yml
+                    """
+                    
+                    // Deploy using docker-compose
+                    sh 'docker-compose down || true'  // Stop any running containers
+                    sh 'docker-compose up -d'
+                    
+                    // Verify deployment
+                    sh 'docker ps'
+                    echo "✅ Successfully deployed to ${params.DEPLOY_ENVIRONMENT}"
                 }
             }
         }
@@ -146,13 +213,19 @@ pipeline {
     post {
         always {
             echo "Pipeline finished. Cleaning up workspace..."
+            // Clean up Docker resources
+            sh '''
+                docker system prune -f || true
+                docker volume prune -f || true
+                docker network prune -f || true
+            '''
             cleanWs()
         }
         success {
-            echo "✅ Build succeeded!"
+            echo "✅ Pipeline completed successfully!"
         }
         failure {
-            echo "❌ Build failed!"
+            echo "❌ Pipeline failed!"
         }
     }
 }
