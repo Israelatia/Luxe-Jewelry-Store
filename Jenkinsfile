@@ -51,6 +51,7 @@ pipeline {
                     dir('backend') {
                         // Install buildx if not present
                         sh '''
+                            # Install buildx if not present
                             if ! command -v docker-buildx &> /dev/null; then
                                 echo "Installing buildx..."
                                 mkdir -p ~/.docker/cli-plugins/
@@ -64,9 +65,14 @@ pipeline {
                                 -t ${DOCKER_IMAGE}-backend:latest \
                                 .
                             
-                            # Run tests if test files exist
+                            # Run tests in the container with proper Python path
                             if [ -d "tests" ]; then
-                                if ! docker run --rm ${DOCKER_IMAGE}-backend:${DOCKER_TAG} python -m pytest tests/ -v; then
+                                echo "Running tests..."
+                                if ! docker run --rm \
+                                    -v ${WORKSPACE}/backend:/app \
+                                    -w /app \
+                                    ${DOCKER_IMAGE}-backend:${DOCKER_TAG} \
+                                    python -m pytest tests/ -v; then
                                     echo "Tests failed"
                                     exit 1
                                 fi
