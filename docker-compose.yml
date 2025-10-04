@@ -1,19 +1,10 @@
 version: '3.8'
 
-services:
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: luxe_frontend
-    ports:
-      - "8081:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
-    networks:
-      - luxe-network
+networks:
+  luxe-network:
+    driver: bridge
 
+services:
   backend:
     build:
       context: ./backend
@@ -28,3 +19,15 @@ services:
     networks:
       - luxe-network
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: luxe_frontend
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - luxe-network
