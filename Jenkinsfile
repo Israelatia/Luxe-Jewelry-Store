@@ -26,7 +26,8 @@ pipeline {
         SEMVER_VERSION = "1.0.${env.BUILD_NUMBER}"
         DOCKER_BUILDKIT = 1
         COMPOSE_DOCKER_CLI_BUILD = 1
-        SNYK_TOKEN = credentials('snyk-token') // Jenkins secret text
+        // SNYK_TOKEN is optional, will be set only if the credential exists
+        SNYK_TOKEN = credentials('snyk-token', '') ?: ''
     }
 
     options {
@@ -115,12 +116,18 @@ pipeline {
         }
 
         stage('Security Scan') {
+            when {
+                environment name: 'SNYK_TOKEN', value: /.+/
+            }
             steps {
-                withEnv(["SNYK_TOKEN=${SNYK_TOKEN}"]) {
-                    sh """
-                        snyk container test ${DOCKER_REGISTRY}/${APP_NAME}-backend:latest --file=backend/Dockerfile --severity-threshold=high
-                        snyk container test ${DOCKER_REGISTRY}/${APP_NAME}-frontend:latest --file=frontend/Dockerfile --severity-threshold=high
-                    """
+                script {
+                    withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+                        sh """
+                            snyk auth ${SNYK_TOKEN}
+                            snyk container test ${DOCKER_IMAGE}-backend:${DOCKER_TAG} --file=backend/Dockerfile --severity-threshold=high
+                            snyk container test ${DOCKER_IMAGE}-frontend:${DOCKER_TAG} --file=frontend/Dockerfile --severity-threshold=high
+                        """
+                    }
                 }
             }
         }
