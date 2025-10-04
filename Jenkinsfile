@@ -23,7 +23,7 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         disableConcurrentBuilds()
         timestamps()
-        timeout(time: 30, unit: 'MINUTES')
+        timeout(time: 45, unit: 'MINUTES')
     }
 
     parameters {
@@ -36,7 +36,7 @@ pipeline {
     stages {
         stage('Clean Workspace') {
             steps {
-                deleteDir() // remove all previous files to avoid permission issues
+                deleteDir()
             }
         }
 
@@ -213,8 +213,15 @@ pipeline {
 
     post {
         always {
-            echo 'Cleaning up Docker images from Jenkins agent...'
+            echo 'Cleaning up Docker images and temporary files from Jenkins agent...'
             sh 'docker system prune -f || true'
+            cleanWs()
+        }
+
+        failure {
+            mail to: 'you@example.com',
+                 subject: "Build Failed: ${currentBuild.fullDisplayName}",
+                 body: "Check Jenkins logs for details."
         }
     }
 }
