@@ -218,25 +218,6 @@ pipeline {
             }
         }
 
-        stage('Build Docker Images') {
-            steps {
-                script {
-                    sh """
-                    # Build backend image with multiple tags
-                    docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} \
-                               -t ${BACKEND_IMAGE}:${GIT_COMMIT_SHORT} \
-                               -t ${BACKEND_IMAGE}:latest \
-                               ./backend
-                    
-                    # Build frontend image with multiple tags
-                    docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
-                               -t ${FRONTEND_IMAGE}:${GIT_COMMIT_SHORT} \
-                               -t ${FRONTEND_IMAGE}:latest \
-                               ./frontend
-                    """
-                }
-            }
-        }
 
         stage('Push Images') {
             when {
