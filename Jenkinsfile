@@ -6,12 +6,13 @@ pipeline {
             image 'israelatia/luxe-jenkins-agent:latest'
             args '--user root -v /var/run/docker.sock:/var/run/docker.sock -e GIT_DISCOVERY_ACROSS_FILESYSTEM=1'
         }
-    }
 
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
         NEXUS_REGISTRY = 'localhost:8082'
         DOCKER_REGISTRY = "${params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY}"
+        DOCKER_IMAGE = 'israelatia/luxe-jewelry-store'
+        DOCKER_TAG = "${env.BUILD_NUMBER}"
         APP_NAME = 'luxe-jewelry-store'
         SEMVER_VERSION = "1.0.${env.BUILD_NUMBER}"
         DOCKER_BUILDKIT = 1
@@ -20,114 +21,20 @@ pipeline {
     }
 
     options {
-        buildDiscarder(logRotator(numToKeepStr: '30'))
+        buildDiscarder(logRotator(numToKeepStr: '5'))
         disableConcurrentBuilds()
         timestamps()
-        timeout(time: 45, unit: 'MINUTES')
-    }
-
-    parameters {
-        choice(name: 'TARGET_REGISTRY', choices: ['docker.io', 'localhost:8082'], description: 'Target Docker registry')
-        choice(name: 'DEPLOY_ENVIRONMENT', choices: ['development', 'staging', 'production', 'none'], description: 'Target environment for deployment')
-        booleanParam(name: 'PUSH_TO_NEXUS', defaultValue: true, description: 'Push images to Nexus registry')
-        booleanParam(name: 'PUSH_TO_DOCKERHUB', defaultValue: true, description: 'Push images to Docker Hub')
+        timeout(time: 15, unit: 'MINUTES')
     }
 
     stages {
-        stage('Clean Workspace') {
-            steps {
-                deleteDir()
-            }
-        }
-
         stage('Checkout') {
             steps {
-                script {
-                    sh '''
-                        git config --global --add safe.directory '*'
-                        git config --global --add safe.directory ${WORKSPACE}
-                    '''
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: '*/main']],
-                        userRemoteConfigs: [[
-                            url: 'https://github.com/Israelatia/Luxe-Jewelry-Store.git',
-                            credentialsId: '4ca4b912-d2aa-4af3-bc7b-0e12d9b88542'
-                        ]],
-                        extensions: [[ $class: 'CleanBeforeCheckout' ]]
-                    ])
-                    env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                    env.IMAGE_TAG_COMMIT = "commit-${env.GIT_COMMIT_SHORT}"
-                }
+                checkout scm
             }
         }
 
-        stage('Backend Setup & Tests') {
-            steps {
-                dir('backend') {
-                    sh '''
-                        python3 -m venv venv
-                        . venv/bin/activate
-                        pip install --upgrade pip
-                        pip install -r requirements.txt
-                    '''
-                }
-            }
-        }
-
-        stage('Unit Tests & Lint') {
-            parallel {
-                stage('Unit Tests') {
-                    steps {
-                        dir('backend') {
-                            sh '''
-                                . venv/bin/activate
-                                python3 -m pytest --junitxml results.xml tests/*.py
-                            '''
-                        }
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, testResults: 'backend/results.xml'
-                        }
-                    }
-                }
-
-                stage('Code Lint') {
-                    steps {
-                        dir('backend') {
-                            sh '''
-                                . venv/bin/activate
-                                python3 -m pylint *.py --exit-zero --output-format=parseable > pylint-report.txt || true
-                            '''
-                        }
-                        publishWarnings parsers: [pylint(pattern: 'backend/pylint-report.txt')]
-                    }
-                }
-            }
-        }
-
-        stage('Build Docker Images') {
-            parallel {
-                stage('Backend Image') {
-                    steps {
-                        script {
-                            buildDockerImage(
-                                imageName: "${APP_NAME}-backend",
-                                dockerFile: 'backend/Dockerfile',
-                                buildContext: '.',
-                                registry: DOCKER_REGISTRY,
-                                tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
-                            )
-                        }
-                    }
-                }
-
-                stage('Frontend Image') {
-                    steps {
-                        script {
-                            buildDockerImage(
-                                imageName: "${APP_NAME}-frontend",
+        stage('Build & Test') {
                                 dockerFile: 'frontend/Dockerfile',
                                 buildContext: '.',
                                 registry: DOCKER_REGISTRY,
