@@ -222,5 +222,17 @@ pipeline {
         }
     }
 
-    post {
+        post {
         always {
+            echo "Pipeline finished. Cleaning up workspace..."
+            cleanWs()
+        }
+        success {
+            echo "✅ Build succeeded!"
+        }
+        failure {
+            echo "❌ Build failed!"
+        }
+    }
+}
+
