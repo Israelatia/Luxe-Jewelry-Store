@@ -83,13 +83,17 @@ pipeline {
 
         stage('Frontend Setup') {
             steps {
-                dir('frontend') {
+                dir('jewelry-store') {
                     script {
                         echo "📦 Installing frontend dependencies..."
                         sh 'npm install'
 
                         echo "🛠️ Building frontend..."
                         sh 'npm run build'
+                        
+                        // Copy built files to frontend directory for Docker build
+                        sh 'mkdir -p ../frontend/dist'
+                        sh 'cp -r build/* ../frontend/'
                     }
                 }
             }
@@ -177,7 +181,7 @@ pipeline {
                             buildDockerImage(
                                 imageName: "${APP_NAME}-frontend",
                                 dockerFile: 'frontend/Dockerfile',
-                                buildContext: '.',
+                                buildContext: 'frontend',
                                 registry: DOCKER_REGISTRY,
                                 tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
                             )
