@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  backend:
+    image: ${DOCKER_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - DEBUG=1
+
+  frontend:
+    image: ${DOCKER_REGISTRY}/${APP_NAME}-frontend:${SEMVER_VERSION}
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
