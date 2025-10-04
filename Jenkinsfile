@@ -11,8 +11,12 @@ pipeline {
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
         NEXUS_REGISTRY = 'localhost:8082'
+        DOCKER_REGISTRY = "${params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY}"
         APP_NAME = 'luxe-jewelry-store'
         SEMVER_VERSION = "1.0.${env.BUILD_NUMBER}"
+        DOCKER_BUILDKIT = 1
+        COMPOSE_DOCKER_CLI_BUILD = 1
+        SNYK_TOKEN = credentials('snyk-token') // Jenkins secret text
     }
 
     options {
@@ -24,13 +28,12 @@ pipeline {
 
     parameters {
         choice(name: 'TARGET_REGISTRY', choices: ['docker.io', 'localhost:8082'], description: 'Target Docker registry')
-        choice(name: 'DEPLOY_ENVIRONMENT', choices: ['development', 'staging', 'production', 'none'], description: 'Deployment environment')
-        booleanParam(name: 'PUSH_TO_NEXUS', defaultValue: true, description: 'Push to Nexus')
-        booleanParam(name: 'PUSH_TO_DOCKERHUB', defaultValue: true, description: 'Push to Docker Hub')
+        choice(name: 'DEPLOY_ENVIRONMENT', choices: ['development', 'staging', 'production', 'none'], description: 'Target environment for deployment')
+        booleanParam(name: 'PUSH_TO_NEXUS', defaultValue: true, description: 'Push images to Nexus registry')
+        booleanParam(name: 'PUSH_TO_DOCKERHUB', defaultValue: true, description: 'Push images to Docker Hub')
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 script {
@@ -56,7 +59,12 @@ pipeline {
         stage('Backend Setup & Tests') {
             steps {
                 dir('backend') {
-                    sh 'pip install -r requirements.txt'
+                    sh '''
+                        python3 -m venv venv
+                        . venv/bin/activate
+                        pip install --upgrade pip
+                        pip install -r requirements.txt
+                    '''
                 }
             }
         }
@@ -66,25 +74,28 @@ pipeline {
                 stage('Unit Tests') {
                     steps {
                         dir('backend') {
-                            sh 'python3 -m pytest --junitxml results.xml tests/*.py'
+                            sh '''
+                                . venv/bin/activate
+                                python3 -m pytest --junitxml results.xml tests/*.py
+                            '''
                         }
                     }
                     post {
                         always {
-                            junit 'backend/results.xml'
+                            junit allowEmptyResults: true, testResults: 'backend/results.xml'
                         }
                     }
                 }
+
                 stage('Code Lint') {
                     steps {
                         dir('backend') {
-                            sh 'python3 -m pylint *.py > pylint.log || true'
+                            sh '''
+                                . venv/bin/activate
+                                python3 -m pylint *.py --exit-zero --output-format=parseable > pylint-report.txt || true
+                            '''
                         }
-                    }
-                    post {
-                        always {
-                            archiveArtifacts 'backend/pylint.log'
-                        }
+                        publishWarnings parsers: [pylint(pattern: 'backend/pylint-report.txt')]
                     }
                 }
             }
@@ -99,12 +110,13 @@ pipeline {
                                 imageName: "${APP_NAME}-backend",
                                 dockerFile: 'backend/Dockerfile',
                                 buildContext: '.',
-                                registry: params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY,
+                                registry: DOCKER_REGISTRY,
                                 tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
                             )
                         }
                     }
                 }
+
                 stage('Frontend Image') {
                     steps {
                         script {
@@ -112,7 +124,7 @@ pipeline {
                                 imageName: "${APP_NAME}-frontend",
                                 dockerFile: 'frontend/Dockerfile',
                                 buildContext: '.',
-                                registry: params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY,
+                                registry: DOCKER_REGISTRY,
                                 tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
                             )
                         }
@@ -142,6 +154,7 @@ pipeline {
                         }
                     }
                 }
+
                 stage('Push to Nexus') {
                     when { expression { params.PUSH_TO_NEXUS && params.TARGET_REGISTRY == 'localhost:8082' } }
                     steps {
@@ -167,18 +180,10 @@ pipeline {
         stage('Security Scan') {
             steps {
                 script {
-                    withCredentials([string(credentialsId: 'synk-token', variable: 'SNYK_TOKEN')]) {
-                        runSecurityScan(
-                            scanType: 'container',
-                            images: [
-                                "${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}",
-                                "${DOCKER_HUB_REGISTRY}/${APP_NAME}-frontend:${SEMVER_VERSION}"
-                            ],
-                            severityThreshold: 'high',
-                            credentialsId: 'synk-token',
-                            failOnIssues: false
-                        )
-                    }
+                    sh """
+                        snyk container test ${DOCKER_REGISTRY}/${APP_NAME}-backend:latest --file=backend/Dockerfile --severity-threshold=high
+                        snyk container test ${DOCKER_REGISTRY}/${APP_NAME}-frontend:latest --file=frontend/Dockerfile --severity-threshold=high
+                    """
                 }
             }
         }
@@ -189,7 +194,7 @@ pipeline {
                 script {
                     deployApplication(
                         environment: params.DEPLOY_ENVIRONMENT,
-                        registry: params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY,
+                        registry: DOCKER_REGISTRY,
                         appName: APP_NAME,
                         composeFile: "docker-compose.${params.DEPLOY_ENVIRONMENT}.yml",
                         healthCheck: true,
@@ -198,13 +203,12 @@ pipeline {
                 }
             }
         }
-
     }
 
     post {
         always {
-            echo 'Cleaning up Docker images from Jenkins agent...'
-            sh 'docker system prune -f'
+            echo "Cleaning up Docker images from Jenkins agent..."
+            sh 'docker system prune -f || true'
         }
     }
 }
