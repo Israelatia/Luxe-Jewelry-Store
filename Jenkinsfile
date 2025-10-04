@@ -11,8 +11,12 @@ pipeline {
     parameters {
         string(name: 'TARGET_REGISTRY', defaultValue: 'docker.io', description: 'Target registry (docker.io or localhost:8082)')
         booleanParam(name: 'PUSH_TO_DOCKERHUB', defaultValue: true, description: 'Push images to Docker Hub')
-        booleanParam(name: 'PUSH_TO_NEXUS', defaultValue: false, description: 'Push images to Nexus')
-        string(name: 'DEPLOY_ENVIRONMENT', defaultValue: 'none', description: 'Deployment environment (dev/stage/prod/none)')
+        booleanParam(name: 'PUSH_TO_NEXUS', defaultValue: true, description: 'Push images to Nexus')
+        choice(
+            name: 'DEPLOY_ENVIRONMENT',
+            choices: ['none', 'dev', 'stage', 'prod'],
+            description: 'Deployment environment'
+        )
     }
 
     environment {
