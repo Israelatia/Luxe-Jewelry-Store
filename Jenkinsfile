@@ -97,6 +97,49 @@ pipeline {
             }
         }
 
+        stage('Security Scan') {
+            when {
+                expression { params.DEPLOY_ENVIRONMENT in ['staging', 'production'] }
+            }
+            environment {
+                SNYK_TOKEN = credentials('snyk-token')
+            }
+            steps {
+                script {
+                    echo 'Running Snyk security scan...'
+                    sh 'snyk auth ${SNYK_TOKEN}'
+                    
+                    // Scan backend
+                    dir('backend') {
+                        try {
+                            sh 'snyk test --severity-threshold=high --file=Dockerfile'
+                            echo 'No high severity vulnerabilities found in backend.'
+                        } catch (e) {
+                            echo '⚠️ High severity vulnerabilities found in backend. Please review and update dependencies.'
+                            if (env.BRANCH_NAME == 'main') {
+                                error('High severity vulnerabilities found in production dependencies')
+                            }
+                        }
+                    }
+                    
+                    // Scan frontend if needed
+                    if (fileExists('frontend/Dockerfile')) {
+                        dir('frontend') {
+                            try {
+                                sh 'snyk test --severity-threshold=high --file=Dockerfile'
+                                echo 'No high severity vulnerabilities found in frontend.'
+                            } catch (e) {
+                                echo '⚠️ High severity vulnerabilities found in frontend. Please review and update dependencies.'
+                                if (env.BRANCH_NAME == 'main') {
+                                    error('High severity vulnerabilities found in production dependencies')
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Deploy') {
             when {
                 expression { params.DEPLOY_ENVIRONMENT != 'none' }
