@@ -1,33 +1,21 @@
 version: '3.8'
 
-networks:
-  luxe-network:
-    driver: bridge
-
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: luxe_backend
+    build: ./backend
     ports:
-      - "5000:5000"
+      - "9999:5000"  # Changed to high port
     environment:
-      FLASK_ENV: production
-      PYTHONUNBUFFERED: 1
-    restart: unless-stopped
-    networks:
-      - luxe-network
+      FLASK_ENV: development
+      DEBUG: 1
+    volumes:
+      - ./backend:/app
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: luxe_frontend
+    build: ./frontend
     ports:
-      - "8081:80"
+      - "8888:80"  # Changed to high port
+    volumes:
+      - ./frontend:/usr/share/nginx/html
     depends_on:
       - backend
-    restart: unless-stopped
-    networks:
-      - luxe-network
