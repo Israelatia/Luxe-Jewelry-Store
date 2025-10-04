@@ -60,8 +60,6 @@ pipeline {
                 }
             }
         }
-            }
-        }
 
         stage('Push Images') {
             parallel {
