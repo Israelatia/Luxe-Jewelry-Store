@@ -16,7 +16,7 @@ pipeline {
         SEMVER_VERSION = "1.0.${env.BUILD_NUMBER}"
         DOCKER_BUILDKIT = 1
         COMPOSE_DOCKER_CLI_BUILD = 1
-        SNYK_TOKEN = credentials('snyk-token') // Jenkins secret text
+        SNYK_TOKEN = credentials('synk-token') // Jenkins secret text
     }
 
     options {
