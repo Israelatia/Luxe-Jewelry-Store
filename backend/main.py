@@ -3,7 +3,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 app = FastAPI(title="Simple Jewelry Store API", version="1.0.0")
 
