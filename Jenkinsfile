@@ -1,4 +1,3 @@
-// Jenkins Shared Library
 @Library('luxe-shared-library') _
 
 pipeline {
@@ -73,20 +72,6 @@ pipeline {
                 }
             }
         }
-stage('Frontend Setup') {
-    steps {
-        script {
-            dir('frontend') {
-                echo "📦 Installing frontend dependencies..."
-            sh 'npm install'
-
-                echo "🛠️ Building frontend..."
-                sh 'npm run build'
-            }
-        }
-    }
-}
-
 
         stage('Test & Quality') {
             parallel {
@@ -120,8 +105,7 @@ stage('Frontend Setup') {
                             runSecurityScan(
                                 scanType: 'container',
                                 images: [
-                                    "${DOCKER_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}",
-                                    "${DOCKER_REGISTRY}/${APP_NAME}-frontend:${SEMVER_VERSION}"
+                                    "${DOCKER_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}"
                                 ],
                                 severityThreshold: 'high',
                                 credentialsId: 'synk-token',
@@ -134,63 +118,32 @@ stage('Frontend Setup') {
         }
 
         stage('Build & Push') {
-            parallel {
-                stage('Backend') {
-                    steps {
-                        script {
-                            buildDockerImage(
-                                imageName: "${APP_NAME}-backend",
-                                dockerFile: 'backend/Dockerfile',
-                                buildContext: '.',
-                                registry: DOCKER_REGISTRY,
-                                tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
-                            )
-                            if (params.PUSH_TO_DOCKERHUB) {
-                                pushToRegistry(
-                                    imageName: "${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend",
-                                    tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest'],
-                                    credentialsId: 'docker-hub',
-                                    registry: 'docker.io'
-                                )
-                            }
-                            if (params.PUSH_TO_NEXUS && params.TARGET_REGISTRY == 'localhost:8082') {
-                                pushToRegistry(
-                                    imageName: "${NEXUS_REGISTRY}/${APP_NAME}-backend",
-                                    tags: [SEMVER_VERSION],
-                                    credentialsId: 'nexus-cred',
-                                    registry: NEXUS_REGISTRY
-                                )
-                            }
-                        }
+            steps {
+                script {
+                    buildDockerImage(
+                        imageName: "${APP_NAME}-backend",
+                        dockerFile: 'backend/Dockerfile',
+                        buildContext: '.',
+                        registry: DOCKER_REGISTRY,
+                        tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
+                    )
+
+                    if (params.PUSH_TO_DOCKERHUB) {
+                        pushToRegistry(
+                            imageName: "${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend",
+                            tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest'],
+                            credentialsId: 'docker-hub',
+                            registry: 'docker.io'
+                        )
                     }
-                }
-                stage('Frontend') {
-                    steps {
-                        script {
-                            buildDockerImage(
-                                imageName: "${APP_NAME}-frontend",
-                                dockerFile: 'frontend/Dockerfile',
-                                buildContext: '.',
-                                registry: DOCKER_REGISTRY,
-                                tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
-                            )
-                            if (params.PUSH_TO_DOCKERHUB) {
-                                pushToRegistry(
-                                    imageName: "${DOCKER_HUB_REGISTRY}/${APP_NAME}-frontend",
-                                    tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest'],
-                                    credentialsId: 'docker-hub',
-                                    registry: 'docker.io'
-                                )
-                            }
-                            if (params.PUSH_TO_NEXUS && params.TARGET_REGISTRY == 'localhost:8082') {
-                                pushToRegistry(
-                                    imageName: "${NEXUS_REGISTRY}/${APP_NAME}-frontend",
-                                    tags: [SEMVER_VERSION],
-                                    credentialsId: 'nexus-docker',
-                                    registry: NEXUS_REGISTRY
-                                )
-                            }
-                        }
+
+                    if (params.PUSH_TO_NEXUS && params.TARGET_REGISTRY == 'localhost:8082') {
+                        pushToRegistry(
+                            imageName: "${NEXUS_REGISTRY}/${APP_NAME}-backend",
+                            tags: [SEMVER_VERSION],
+                            credentialsId: 'nexus-cred',
+                            registry: NEXUS_REGISTRY
+                        )
                     }
                 }
             }
