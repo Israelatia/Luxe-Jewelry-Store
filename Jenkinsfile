@@ -6,6 +6,7 @@ pipeline {
             image 'israelatia/luxe-jenkins-agent:latest'
             args '--user root -v /var/run/docker.sock:/var/run/docker.sock -e GIT_DISCOVERY_ACROSS_FILESYSTEM=1'
         }
+    }
 
     parameters {
         string(name: 'TARGET_REGISTRY', defaultValue: 'docker.io', description: 'Target registry (docker.io or localhost:8082)')
