@@ -1,11 +1,24 @@
-FROM nginx:1.25-alpine
+# Use Node LTS image
+FROM node:18-bullseye
 
-RUN rm /etc/nginx/conf.d/default.conf
-COPY nginx.conf /etc/nginx/conf.d/
+# Set work directory
+WORKDIR /app
 
-# Copy all files (index.html etc.)
-COPY . /usr/share/nginx/html/
+# Copy package files first for caching
+COPY package*.json ./
 
-EXPOSE 80
+# Install dependencies
+RUN npm install --legacy-peer-deps
 
-CMD ["nginx", "-g", "daemon off;"]
+# Copy all frontend files
+COPY . .
+
+# Build the production frontend
+RUN npm run build
+
+# Expose port (serve via a simple server like serve)
+RUN npm install -g serve
+EXPOSE 3000
+
+# Start the app
+CMD ["serve", "-s", "build", "-l", "3000"]
