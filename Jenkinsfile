@@ -27,7 +27,7 @@ pipeline {
         DOCKER_BUILDKIT = 1
         COMPOSE_DOCKER_CLI_BUILD = 1
         // SNYK_TOKEN is optional, will be set only if the credential exists
-        SNYK_TOKEN = credentials('snyk-token', '') ?: ''
+        SNYK_TOKEN = ''
     }
 
     options {
