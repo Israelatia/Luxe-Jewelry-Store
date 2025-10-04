@@ -1,5 +1,3 @@
-@Library('luxe-shared-library') _
-
 pipeline {
     agent {
         docker {
@@ -76,31 +74,27 @@ pipeline {
             steps {
                 script {
                     def targetRegistry = params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY
-                    def imageFullName = "${targetRegistry}/${APP_NAME}-backend"
+                    def imageFullName = "${targetRegistry}/${APP_NAME}-backend:${SEMVER_VERSION}"
 
                     // Build Docker image
-                    buildDockerImage(
-                        imageName: "${APP_NAME}-backend",
-                        dockerFile: 'backend/Dockerfile',
-                        buildContext: '.',
-                        registry: targetRegistry,
-                        tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
-                    )
+                    sh "docker build -t ${imageFullName} -f backend/Dockerfile ."
+                    sh "docker tag ${imageFullName} ${targetRegistry}/${APP_NAME}-backend:latest"
+                    sh "docker tag ${imageFullName} ${targetRegistry}/${APP_NAME}-backend:${env.IMAGE_TAG_COMMIT}"
 
                     // Push to Docker Hub
                     if (params.PUSH_TO_DOCKERHUB && params.TARGET_REGISTRY == 'docker.io') {
-                        docker.withRegistry("https://${DOCKER_HUB_REGISTRY}", 'docker-hub') {
-                            ["${SEMVER_VERSION}", "${IMAGE_TAG_COMMIT}", "latest"].each { tag ->
-                                sh "docker tag ${APP_NAME}-backend:${tag} ${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:${tag}"
-                                sh "docker push ${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:${tag}"
-                            }
+                        withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')]) {
+                            sh "echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USER --password-stdin docker.io"
+                            sh "docker push ${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}"
+                            sh "docker push ${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:latest"
+                            sh "docker push ${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:${env.IMAGE_TAG_COMMIT}"
                         }
                     }
 
                     // Push to Nexus
                     if (params.PUSH_TO_NEXUS && params.TARGET_REGISTRY == 'localhost:8082') {
-                        docker.withRegistry("http://${NEXUS_REGISTRY}", 'nexus-cred') {
-                            sh "docker tag ${APP_NAME}-backend:${SEMVER_VERSION} ${NEXUS_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}"
+                        withCredentials([usernamePassword(credentialsId: 'nexus-cred', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                            sh "echo $NEXUS_PASS | docker login -u $NEXUS_USER --password-stdin ${NEXUS_REGISTRY}"
                             sh "docker push ${NEXUS_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}"
                         }
                     }
@@ -110,16 +104,9 @@ pipeline {
 
         stage('Security Scan') {
             steps {
-                withCredentials([string(credentialsId: 'synk-token', variable: 'SNYK_TOKEN')]) {
-                    script {
-                        runSecurityScan(
-                            scanType: 'container',
-                            images: ["${params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}"],
-                            severityThreshold: 'high',
-                            credentialsId: 'synk-token',
-                            failOnIssues: false
-                        )
-                    }
+                script {
+                    echo "🔒 Security scan placeholder: implement your scanner (Snyk, Trivy, etc.) here"
+                    // Example: sh "snyk container test ${imageFullName} --severity-threshold=high --org=<org-id> --token=<token>"
                 }
             }
         }
@@ -130,14 +117,10 @@ pipeline {
             }
             steps {
                 script {
-                    deployApplication(
-                        environment: params.DEPLOY_ENVIRONMENT,
-                        registry: params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY,
-                        appName: APP_NAME,
-                        composeFile: "docker-compose.${params.DEPLOY_ENVIRONMENT}.yml",
-                        healthCheck: true,
-                        timeout: 300
-                    )
+                    echo "🚀 Deploying to ${params.DEPLOY_ENVIRONMENT} environment..."
+                    sh """
+                        docker-compose -f docker-compose.${params.DEPLOY_ENVIRONMENT}.yml up -d --build
+                    """
                 }
             }
         }
@@ -145,7 +128,7 @@ pipeline {
 
     post {
         always {
-            echo "Pipeline finished. Cleaning up workspace..."
+            echo "🧹 Pipeline finished. Cleaning up workspace..."
             cleanWs()
         }
         success {
