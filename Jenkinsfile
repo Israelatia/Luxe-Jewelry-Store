@@ -49,23 +49,39 @@ pipeline {
                 script {
                     // Build and test backend
                     dir('backend') {
-                        sh 'docker build -t ${DOCKER_IMAGE}-backend:${DOCKER_TAG} .'
-                        
-                        // Run tests if test files exist
-                        if (fileExists('tests/')) {
-                            sh '''
-                                if ! docker run --rm ${DOCKER_IMAGE}-backend:${DOCKER_TAG} \
-                                    python -m pytest tests/ -v; then
+                        // Install buildx if not present
+                        sh '''
+                            if ! command -v docker-buildx &> /dev/null; then
+                                echo "Installing buildx..."
+                                mkdir -p ~/.docker/cli-plugins/
+                                curl -sSL https://github.com/docker/buildx/releases/download/v0.8.2/buildx-v0.8.2.linux-amd64 -o ~/.docker/cli-plugins/docker-buildx
+                                chmod +x ~/.docker/cli-plugins/docker-buildx
+                            fi
+                            
+                            # Build with BuildKit
+                            DOCKER_BUILDKIT=1 docker build \
+                                -t ${DOCKER_IMAGE}-backend:${DOCKER_TAG} \
+                                -t ${DOCKER_IMAGE}-backend:latest \
+                                .
+                            
+                            # Run tests if test files exist
+                            if [ -d "tests" ]; then
+                                if ! docker run --rm ${DOCKER_IMAGE}-backend:${DOCKER_TAG} python -m pytest tests/ -v; then
                                     echo "Tests failed"
                                     exit 1
                                 fi
-                            '''
-                        }
+                            fi
+                        '''
                     }
                     
                     // Build frontend
                     dir('frontend') {
-                        sh 'docker build -t ${DOCKER_IMAGE}-frontend:${DOCKER_TAG} .'
+                        sh '''
+                            DOCKER_BUILDKIT=1 docker build \
+                                -t ${DOCKER_IMAGE}-frontend:${DOCKER_TAG} \
+                                -t ${DOCKER_IMAGE}-frontend:latest \
+                                .
+                        '''
                     }
                 }
             }
