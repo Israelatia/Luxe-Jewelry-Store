@@ -16,7 +16,7 @@ pipeline {
         SEMVER_VERSION = "1.0.${env.BUILD_NUMBER}"
         DOCKER_BUILDKIT = 1
         COMPOSE_DOCKER_CLI_BUILD = 1
-        SNYK_TOKEN = credentials('synk-token') // Jenkins secret text
+        SNYK_TOKEN = credentials('snyk-token') // Jenkins secret text
     }
 
     options {
@@ -34,6 +34,12 @@ pipeline {
     }
 
     stages {
+        stage('Clean Workspace') {
+            steps {
+                deleteDir() // remove all previous files to avoid permission issues
+            }
+        }
+
         stage('Checkout') {
             steps {
                 script {
@@ -179,7 +185,7 @@ pipeline {
 
         stage('Security Scan') {
             steps {
-                script {
+                withEnv(["SNYK_TOKEN=${SNYK_TOKEN}"]) {
                     sh """
                         snyk container test ${DOCKER_REGISTRY}/${APP_NAME}-backend:latest --file=backend/Dockerfile --severity-threshold=high
                         snyk container test ${DOCKER_REGISTRY}/${APP_NAME}-frontend:latest --file=frontend/Dockerfile --severity-threshold=high
@@ -207,7 +213,7 @@ pipeline {
 
     post {
         always {
-            echo "Cleaning up Docker images from Jenkins agent..."
+            echo 'Cleaning up Docker images from Jenkins agent...'
             sh 'docker system prune -f || true'
         }
     }
