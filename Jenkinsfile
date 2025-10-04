@@ -100,18 +100,28 @@ pipeline {
                     when { expression { params.PUSH_TO_DOCKERHUB } }
                     steps {
                         script {
-                            pushToRegistry(
-                                imageName: "${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend",
-                                tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest'],
+                            withCredentials([usernamePassword(
                                 credentialsId: 'docker-hub',
-                                registry: 'docker.io'
-                            )
-                            pushToRegistry(
-                                imageName: "${DOCKER_HUB_REGISTRY}/${APP_NAME}-frontend",
-                                tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest'],
-                                credentialsId: 'docker-hub',
-                                registry: 'docker.io'
-                            )
+                                usernameVariable: 'DOCKER_USER',
+                                passwordVariable: 'DOCKER_PASS'
+                            )]) {
+                                sh """
+                                    docker login -u $DOCKER_USER -p $DOCKER_PASS
+                                    docker tag ${DOCKER_IMAGE}-backend:latest ${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}
+                                    docker tag ${DOCKER_IMAGE}-backend:latest ${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:${IMAGE_TAG_COMMIT}
+                                    docker tag ${DOCKER_IMAGE}-backend:latest ${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:latest
+                                    docker push ${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}
+                                    docker push ${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:${IMAGE_TAG_COMMIT}
+                                    docker push ${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:latest
+                                    
+                                    docker tag ${DOCKER_IMAGE}-frontend:latest ${DOCKER_HUB_REGISTRY}/${APP_NAME}-frontend:${SEMVER_VERSION}
+                                    docker tag ${DOCKER_IMAGE}-frontend:latest ${DOCKER_HUB_REGISTRY}/${APP_NAME}-frontend:${IMAGE_TAG_COMMIT}
+                                    docker tag ${DOCKER_IMAGE}-frontend:latest ${DOCKER_HUB_REGISTRY}/${APP_NAME}-frontend:latest
+                                    docker push ${DOCKER_HUB_REGISTRY}/${APP_NAME}-frontend:${SEMVER_VERSION}
+                                    docker push ${DOCKER_HUB_REGISTRY}/${APP_NAME}-frontend:${IMAGE_TAG_COMMIT}
+                                    docker push ${DOCKER_HUB_REGISTRY}/${APP_NAME}-frontend:latest
+                                """
+                            }
                         }
                     }
                 }
@@ -120,18 +130,21 @@ pipeline {
                     when { expression { params.PUSH_TO_NEXUS && params.TARGET_REGISTRY == 'localhost:8082' } }
                     steps {
                         script {
-                            pushToRegistry(
-                                imageName: "${NEXUS_REGISTRY}/${APP_NAME}-backend",
-                                tags: [SEMVER_VERSION],
-                                credentialsId: 'nexus-cred',
-                                registry: NEXUS_REGISTRY
-                            )
-                            pushToRegistry(
-                                imageName: "${NEXUS_REGISTRY}/${APP_NAME}-frontend",
-                                tags: [SEMVER_VERSION],
+                            withCredentials([usernamePassword(
                                 credentialsId: 'nexus-docker',
-                                registry: NEXUS_REGISTRY
-                            )
+                                usernameVariable: 'NEXUS_USER',
+                                passwordVariable: 'NEXUS_PASS'
+                            )]) {
+                                sh """
+                                    docker login -u $NEXUS_USER -p $NEXUS_PASS ${NEXUS_REGISTRY}
+                                    
+                                    docker tag ${DOCKER_IMAGE}-backend:latest ${NEXUS_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}
+                                    docker push ${NEXUS_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}
+                                    
+                                    docker tag ${DOCKER_IMAGE}-frontend:latest ${NEXUS_REGISTRY}/${APP_NAME}-frontend:${SEMVER_VERSION}
+                                    docker push ${NEXUS_REGISTRY}/${APP_NAME}-frontend:${SEMVER_VERSION}
+                                """
+                            }
                         }
                     }
                 }
