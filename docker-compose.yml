@@ -1,27 +1,30 @@
-version: '3.9'
+version: '3.8'
 
 services:
   frontend:
-    image: front-image
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: luxe_frontend
     ports:
       - "8081:80"
     depends_on:
       - backend
+    restart: unless-stopped
     networks:
       - luxe-network
 
   backend:
-    image: backend-image
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: luxe_backend
     ports:
       - "5000:5000"
     environment:
-      # Example environment variables
-      APP_ENV: development
+      FLASK_ENV: production
+      PYTHONUNBUFFERED: 1
+    restart: unless-stopped
     networks:
       - luxe-network
 
-networks:
-  luxe-network:
-    driver: bridge
