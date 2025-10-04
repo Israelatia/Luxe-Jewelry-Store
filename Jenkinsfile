@@ -71,8 +71,9 @@ pipeline {
                                 if ! docker run --rm \
                                     -v ${WORKSPACE}/backend:/app \
                                     -w /app \
+                                    -e PYTHONPATH=/app \
                                     ${DOCKER_IMAGE}-backend:${DOCKER_TAG} \
-                                    python -m pytest tests/ -v; then
+                                    python -m pytest tests/ -v --import-mode=importlib; then
                                     echo "Tests failed"
                                     exit 1
                                 fi
