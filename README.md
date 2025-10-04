@@ -2,7 +2,153 @@
 
 ## 📖 Project Overview
 
-This is a complete e-commerce jewelry store application built with modern microservices architecture. The application demonstrates full-stack development principles, API design, user authentication, and containerization practices.
+This is a complete e-commerce jewelry store application built with modern microservices architecture. The application demonstrates full-stack development principles, API design, user authentication, and containerization practices. The project includes a comprehensive CI/CD pipeline using Jenkins for automated testing, building, and deployment.
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Docker and Docker Compose
+- Node.js 16+ and npm/yarn (for development)
+- Python 3.8+ (for backend development)
+- Jenkins (for CI/CD pipeline)
+
+### Local Development
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/luxe-jewelry-store.git
+   cd luxe-jewelry-store
+   ```
+
+2. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+3. Start the application with Docker Compose:
+   ```bash
+   docker-compose up --build
+   ```
+
+4. Access the application:
+   - Frontend: http://localhost:8080
+   - Backend API: http://localhost:5000
+   - API Documentation: http://localhost:5000/docs
+
+## 🛠 CI/CD Pipeline
+
+The project includes a Jenkins pipeline with the following stages:
+
+1. **Checkout**: Fetches the latest code from the repository
+2. **Build & Test**:
+   - Builds the application
+   - Runs unit tests
+   - Performs code linting
+   - Runs security scans
+3. **Build Docker Images**: Creates production-ready Docker images
+4. **Push to Registry**: Pushes images to Docker Hub or Nexus
+5. **Deploy**: Deploys to the specified environment (dev/stage/prod)
+6. **Cleanup**: Removes temporary files and unused Docker resources
+
+### Pipeline Parameters
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| TARGET_REGISTRY | Target registry (docker.io or localhost:8082) | docker.io |
+| PUSH_TO_DOCKERHUB | Push images to Docker Hub | true |
+| PUSH_TO_NEXUS | Push images to Nexus | false |
+| DEPLOY_ENVIRONMENT | Deployment environment (none/dev/stage/prod) | none |
+| RUN_TESTS | Run unit tests | true |
+| RUN_LINTING | Run code linting | true |
+| RUN_SECURITY_SCAN | Run security scanning | true |
+
+## 🐳 Docker Setup
+
+The project uses multi-stage Docker builds for both frontend and backend services.
+
+### Backend Service
+- **Base Image**: Python 3.12-slim
+- **Port**: 5000
+- **Health Check**: `GET /health`
+- **Build Command**: `docker build -t luxe-backend -f backend/Dockerfile ./backend`
+
+### Frontend Service
+- **Base Image**: Nginx 1.25-alpine
+- **Port**: 80
+- **Health Check**: HTTP check on `/`
+- **Build Command**: `docker build -t luxe-frontend -f frontend/Dockerfile ./frontend`
+
+### Environment Variables
+
+Create a `.env` file in the project root with the following variables:
+
+```env
+# Application Settings
+TAG=latest
+TZ=UTC
+
+# Backend Settings
+FLASK_ENV=development
+DEBUG=1
+BACKEND_PORT=5000
+
+# Frontend Settings
+NODE_ENV=development
+FRONTEND_PORT=8080
+VITE_API_URL=http://localhost:5000
+```
+
+## 🔒 Security
+
+### Snyk Security Scanning
+
+The pipeline includes Snyk for container vulnerability scanning. To use Snyk:
+
+1. Sign up at [Snyk](https://snyk.io/)
+2. Get your API token from the account settings
+3. Add the token as a Jenkins credential with ID 'snyk-token'
+
+### Secrets Management
+
+Sensitive information is managed through Jenkins credentials:
+- `docker-hub`: Docker Hub username and password
+- `nexus`: Nexus repository credentials
+- `snyk-token`: Snyk API token
+
+## 🧪 Testing
+
+### Unit Tests
+
+Run backend tests:
+```bash
+cd backend
+pip install -r requirements.txt
+pytest tests/
+```
+
+### Linting
+
+Run Python linting:
+```bash
+cd backend
+pylint --rcfile=.pylintrc *.py
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 📧 Contact
+
+Project Link: [https://github.com/yourusername/luxe-jewelry-store](https://github.com/yourusername/luxe-jewelry-store)
 
 ### 🏗️ Architecture
 
