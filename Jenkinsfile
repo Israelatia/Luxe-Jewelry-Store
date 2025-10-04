@@ -7,12 +7,20 @@ pipeline {
             args '--user root -v /var/run/docker.sock:/var/run/docker.sock -e GIT_DISCOVERY_ACROSS_FILESYSTEM=1'
         }
 
+    parameters {
+        string(name: 'TARGET_REGISTRY', defaultValue: 'docker.io', description: 'Target registry (docker.io or localhost:8082)')
+        booleanParam(name: 'PUSH_TO_DOCKERHUB', defaultValue: true, description: 'Push images to Docker Hub')
+        booleanParam(name: 'PUSH_TO_NEXUS', defaultValue: false, description: 'Push images to Nexus')
+        string(name: 'DEPLOY_ENVIRONMENT', defaultValue: 'none', description: 'Deployment environment (dev/stage/prod/none)')
+    }
+
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
         NEXUS_REGISTRY = 'localhost:8082'
         DOCKER_REGISTRY = "${params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY}"
         DOCKER_IMAGE = 'israelatia/luxe-jewelry-store'
         DOCKER_TAG = "${env.BUILD_NUMBER}"
+        IMAGE_TAG_COMMIT = "${env.GIT_COMMIT.take(7)}"
         APP_NAME = 'luxe-jewelry-store'
         SEMVER_VERSION = "1.0.${env.BUILD_NUMBER}"
         DOCKER_BUILDKIT = 1
