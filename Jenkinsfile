@@ -73,18 +73,20 @@ pipeline {
                 }
             }
         }
+stage('Frontend Setup') {
+    steps {
+        script {
+            dir('frontend') {
+                echo "📦 Installing frontend dependencies..."
+            sh 'npm install'
 
-        stage('Frontend Setup') {
-            steps {
-                script {
-                    echo "📦 Installing frontend dependencies (root)..."
-                    sh 'npm install'
-
-                    echo "🛠️ Building frontend (root)..."
-                    sh 'npm run build'
-                }
+                echo "🛠️ Building frontend..."
+                sh 'npm run build'
             }
         }
+    }
+}
+
 
         stage('Test & Quality') {
             parallel {
