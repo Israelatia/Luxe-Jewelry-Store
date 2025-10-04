@@ -21,7 +21,7 @@ def test_health_check(client):
 
 def test_get_products(client):
     """Test getting all products"""
-    response = client.get("/api/products")
+    response = client.get("/products")
     assert response.status_code == 200
     products = response.json()
     assert isinstance(products, list)
@@ -30,10 +30,10 @@ def test_get_products(client):
 def test_get_product(client):
     """Test getting a single product"""
     # First get the list of products to get a valid ID
-    products = client.get("/api/products").json()
+    products = client.get("/products").json()
     if products:
         product_id = products[0]["id"]
-        response = client.get(f"/api/products/{product_id}")
+        response = client.get(f"/products/{product_id}")
         assert response.status_code == 200
         product = response.json()
         assert product["id"] == product_id
@@ -41,16 +41,16 @@ def test_get_product(client):
 def test_add_to_cart(client):
     """Test adding an item to cart"""
     # First get a valid product ID
-    products = client.get("/api/products").json()
+    products = client.get("/products").json()
     if products:
         product_id = products[0]["id"]
-        response = client.post(f"/api/cart/add/{product_id}", json={"quantity": 1})
+        response = client.post(f"/cart/{product_id}", params={"quantity": 1})
         assert response.status_code == 200
-        assert "item_id" in response.json()
+        assert "message" in response.json()
 
 def test_view_cart(client):
     """Test viewing the cart"""
-    response = client.get("/api/cart")
+    response = client.get("/cart")
     assert response.status_code == 200
     cart = response.json()
     assert isinstance(cart, dict)
