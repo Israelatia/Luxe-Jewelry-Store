@@ -10,18 +10,11 @@ pipeline {
     }
 
     environment {
-        // Docker registry configuration
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
         NEXUS_REGISTRY = 'localhost:8082'
         DOCKER_REGISTRY = "${params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY}"
-        
-        // Application configuration
         APP_NAME = 'luxe-jewelry-store'
-        
-        // Image tags
         SEMVER_VERSION = "1.0.${env.BUILD_NUMBER}"
-        
-        // Enable Docker BuildKit and CLI for better build performance
         DOCKER_BUILDKIT = 1
         COMPOSE_DOCKER_CLI_BUILD = 1
     }
@@ -83,14 +76,12 @@ pipeline {
 
         stage('Frontend Setup') {
             steps {
-                dir('frontend') {
-                    script {
-                        echo "📦 Installing frontend dependencies..."
-                        sh 'npm install'
+                script {
+                    echo "📦 Installing frontend dependencies (root)..."
+                    sh 'npm install'
 
-                        echo "🛠️ Building frontend..."
-                        sh 'npm run build'
-                    }
+                    echo "🛠️ Building frontend (root)..."
+                    sh 'npm run build'
                 }
             }
         }
@@ -222,7 +213,7 @@ pipeline {
         }
     }
 
-        post {
+    post {
         always {
             echo "Pipeline finished. Cleaning up workspace..."
             cleanWs()
@@ -235,4 +226,3 @@ pipeline {
         }
     }
 }
-
