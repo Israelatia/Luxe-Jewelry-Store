@@ -131,7 +131,7 @@ pipeline {
                                     "${DOCKER_REGISTRY}/${APP_NAME}-frontend:${SEMVER_VERSION}"
                                 ],
                                 severityThreshold: 'high',
-                                credentialsId: 'synk-token',
+                                credentialsId: 'synk',
                                 failOnIssues: false
                             )
                         }
