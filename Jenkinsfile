@@ -83,17 +83,13 @@ pipeline {
 
         stage('Frontend Setup') {
             steps {
-                dir('jewelry-store') {
+                dir('frontend') {
                     script {
                         echo "📦 Installing frontend dependencies..."
                         sh 'npm install'
 
                         echo "🛠️ Building frontend..."
                         sh 'npm run build'
-                        
-                        // Copy built files to frontend directory for Docker build
-                        sh 'mkdir -p ../frontend/dist'
-                        sh 'cp -r build/* ../frontend/'
                     }
                 }
             }
@@ -103,36 +99,41 @@ pipeline {
             parallel {
                 stage('Unit Tests') {
                     steps {
-                        dir('jewelry-store') {
-                            script {
-                                echo "🧪 Running frontend tests..."
-                                sh 'npm test -- --watchAll=false'
-                            }
-                        }
-                        dir('backend') {
-                            script {
-                                echo "🧪 Running backend tests..."
-                                sh 'python -m pytest tests/ -v --junitxml=test-results.xml'
-                                junit '**/test-results.xml'
-                            }
+                        script {
+                            runTests(
+                                framework: 'pytest',
+                                testPath: 'tests/',
+                                coverageThreshold: 80,
+                                junitReport: true
+                            )
                         }
                     }
                 }
                 stage('Code Quality') {
                     steps {
                         script {
-                            echo "🔍 Running code quality checks..."
-                            // Skip code quality for now as it requires additional setup
-                            echo "Skipping code quality checks (not configured)"
+                            runCodeQuality(
+                                language: 'python',
+                                sourcePath: 'backend/',
+                                configFile: '.pylintrc',
+                                failOnIssues: false
+                            )
                         }
                     }
                 }
                 stage('Security Scan') {
                     steps {
                         script {
-                            echo "🔒 Running security scan..."
-                            // Skip security scan for now as it requires credentials
-                            echo "Skipping security scan (credentials not configured)"
+                            runSecurityScan(
+                                scanType: 'container',
+                                images: [
+                                    "${DOCKER_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}",
+                                    "${DOCKER_REGISTRY}/${APP_NAME}-frontend:${SEMVER_VERSION}"
+                                ],
+                                severityThreshold: 'high',
+                                credentialsId: 'synk-token',
+                                failOnIssues: false
+                            )
                         }
                     }
                 }
@@ -176,7 +177,7 @@ pipeline {
                             buildDockerImage(
                                 imageName: "${APP_NAME}-frontend",
                                 dockerFile: 'frontend/Dockerfile',
-                                buildContext: 'frontend',
+                                buildContext: '.',
                                 registry: DOCKER_REGISTRY,
                                 tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
                             )
