@@ -35,14 +35,31 @@ pipeline {
         }
 
         stage('Build & Test') {
-                                dockerFile: 'frontend/Dockerfile',
-                                buildContext: '.',
-                                registry: DOCKER_REGISTRY,
-                                tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
-                            )
+            steps {
+                script {
+                    // Build and test backend
+                    dir('backend') {
+                        sh 'docker build -t ${DOCKER_IMAGE}-backend:${DOCKER_TAG} .'
+                        
+                        // Run tests if test files exist
+                        if (fileExists('tests/')) {
+                            sh '''
+                                if ! docker run --rm ${DOCKER_IMAGE}-backend:${DOCKER_TAG} \
+                                    python -m pytest tests/ -v; then
+                                    echo "Tests failed"
+                                    exit 1
+                                fi
+                            '''
                         }
                     }
+                    
+                    // Build frontend
+                    dir('frontend') {
+                        sh 'docker build -t ${DOCKER_IMAGE}-frontend:${DOCKER_TAG} .'
+                    }
                 }
+            }
+        }
             }
         }
 
