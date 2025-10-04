@@ -60,36 +60,6 @@ pipeline {
         // Ports
         BACKEND_PORT = '5000'
         FRONTEND_PORT = '8080'
-        
-        // Test and Linting
-        PYTHONPATH = ".:${WORKSPACE}"
-    }
-
-    environment {
-        // Registry settings
-        DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
-        NEXUS_REGISTRY = 'localhost:8082'
-        DOCKER_REGISTRY = "${params.TARGET_REGISTRY == 'docker.io' ? '' : NEXUS_REGISTRY}"
-        
-        // Application settings
-        APP_NAME = 'luxe-jewelry-store'
-        BACKEND_IMAGE = "${DOCKER_REGISTRY ? DOCKER_REGISTRY + '/' : ''}${APP_NAME}-backend"
-        FRONTEND_IMAGE = "${DOCKER_REGISTRY ? DOCKER_REGISTRY + '/' : ''}${APP_NAME}-frontend"
-        
-        // Versioning
-        GIT_COMMIT_SHORT = "${env.GIT_COMMIT.take(7)}"
-        IMAGE_TAG = "${env.BUILD_NUMBER}-${GIT_COMMIT_SHORT}"
-        
-        // Ports
-        BACKEND_PORT = '5000'
-        FRONTEND_PORT = '8080'
-    }
-
-    options {
-        buildDiscarder(logRotator(numToKeepStr: '10'))
-        disableConcurrentBuilds()
-        timeout(time: 30, unit: 'MINUTES')
-        timestamps()
     }
 
     stages {
