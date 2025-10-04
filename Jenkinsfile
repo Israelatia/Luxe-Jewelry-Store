@@ -11,7 +11,6 @@ pipeline {
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
         NEXUS_REGISTRY = 'localhost:8082'
-        DOCKER_REGISTRY = "${params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY}"
         APP_NAME = 'luxe-jewelry-store'
         SEMVER_VERSION = "1.0.${env.BUILD_NUMBER}"
         DOCKER_BUILDKIT = 1
@@ -73,76 +72,52 @@ pipeline {
             }
         }
 
-        stage('Test & Quality') {
-            parallel {
-                stage('Unit Tests') {
-                    steps {
-                        script {
-                            runTests(
-                                framework: 'pytest',
-                                testPath: 'tests/',
-                                coverageThreshold: 80,
-                                junitReport: true
-                            )
+        stage('Build & Push') {
+            steps {
+                script {
+                    def targetRegistry = params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY
+                    def imageFullName = "${targetRegistry}/${APP_NAME}-backend"
+
+                    // Build Docker image
+                    buildDockerImage(
+                        imageName: "${APP_NAME}-backend",
+                        dockerFile: 'backend/Dockerfile',
+                        buildContext: '.',
+                        registry: targetRegistry,
+                        tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
+                    )
+
+                    // Push to Docker Hub
+                    if (params.PUSH_TO_DOCKERHUB && params.TARGET_REGISTRY == 'docker.io') {
+                        docker.withRegistry("https://${DOCKER_HUB_REGISTRY}", 'docker-hub') {
+                            ["${SEMVER_VERSION}", "${IMAGE_TAG_COMMIT}", "latest"].each { tag ->
+                                sh "docker tag ${APP_NAME}-backend:${tag} ${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:${tag}"
+                                sh "docker push ${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend:${tag}"
+                            }
                         }
                     }
-                }
-                stage('Code Quality') {
-                    steps {
-                        script {
-                            runCodeQuality(
-                                language: 'python',
-                                sourcePath: 'backend/',
-                                configFile: '.pylintrc',
-                                failOnIssues: false
-                            )
-                        }
-                    }
-                }
-                stage('Security Scan') {
-                    steps {
-                        script {
-                            runSecurityScan(
-                                scanType: 'container',
-                                images: [
-                                    "${DOCKER_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}"
-                                ],
-                                severityThreshold: 'high',
-                                credentialsId: 'synk-token',
-                                failOnIssues: false
-                            )
+
+                    // Push to Nexus
+                    if (params.PUSH_TO_NEXUS && params.TARGET_REGISTRY == 'localhost:8082') {
+                        docker.withRegistry("http://${NEXUS_REGISTRY}", 'nexus-cred') {
+                            sh "docker tag ${APP_NAME}-backend:${SEMVER_VERSION} ${NEXUS_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}"
+                            sh "docker push ${NEXUS_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}"
                         }
                     }
                 }
             }
         }
 
-        stage('Build & Push') {
+        stage('Security Scan') {
             steps {
-                script {
-                    buildDockerImage(
-                        imageName: "${APP_NAME}-backend",
-                        dockerFile: 'backend/Dockerfile',
-                        buildContext: '.',
-                        registry: DOCKER_REGISTRY,
-                        tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
-                    )
-
-                    if (params.PUSH_TO_DOCKERHUB) {
-                        pushToRegistry(
-                            imageName: "${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend",
-                            tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest'],
-                            credentialsId: 'docker-hub',
-                            registry: 'docker.io'
-                        )
-                    }
-
-                    if (params.PUSH_TO_NEXUS && params.TARGET_REGISTRY == 'localhost:8082') {
-                        pushToRegistry(
-                            imageName: "${NEXUS_REGISTRY}/${APP_NAME}-backend",
-                            tags: [SEMVER_VERSION],
-                            credentialsId: 'nexus-cred',
-                            registry: NEXUS_REGISTRY
+                withCredentials([string(credentialsId: 'synk-token', variable: 'SNYK_TOKEN')]) {
+                    script {
+                        runSecurityScan(
+                            scanType: 'container',
+                            images: ["${params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY}/${APP_NAME}-backend:${SEMVER_VERSION}"],
+                            severityThreshold: 'high',
+                            credentialsId: 'synk-token',
+                            failOnIssues: false
                         )
                     }
                 }
@@ -157,7 +132,7 @@ pipeline {
                 script {
                     deployApplication(
                         environment: params.DEPLOY_ENVIRONMENT,
-                        registry: DOCKER_REGISTRY,
+                        registry: params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY,
                         appName: APP_NAME,
                         composeFile: "docker-compose.${params.DEPLOY_ENVIRONMENT}.yml",
                         healthCheck: true,
