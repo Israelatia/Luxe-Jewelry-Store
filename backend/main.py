@@ -1,20 +1,14 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List, Optional
-import uuid
-import jwt
-import httpx
-from datetime import datetime
-import os
 
-app = FastAPI(title="Luxe Jewelry Store API", version="1.0.0")
+app = FastAPI(title="Simple Jewelry Store API", version="1.0.0")
 
-# Enable CORS for React frontend
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React dev server
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -32,27 +26,10 @@ class Product(BaseModel):
     id: int
     name: str
     price: float
-    image: str
-    description: str
+    description: str = ""
     category: str = "jewelry"
-    in_stock: bool = True
 
-class CartItem(BaseModel):
-    id: str
-    product_id: int
-    quantity: int
-    added_at: datetime
-
-class CartItemRequest(BaseModel):
-    product_id: int
-    quantity: int = 1
-
-class CartResponse(BaseModel):
-    items: List[dict]
-    total: float
-    item_count: int
-
-# In-memory storage (in production, use a database)
+# Simple in-memory database
 products_db = [
     {
         "id": 1,
@@ -110,200 +87,70 @@ products_db = [
     }
 ]
 
-# Authentication utilities
-async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Verify JWT token and return user ID (optional authentication)"""
-    if not credentials:
-        return None
-    
-    try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
-        return user_id
-    except jwt.PyJWTError:
-        return None
-
-async def get_current_user(user_id: str = Depends(verify_token)):
-    """Get current user info from auth service"""
-    if not user_id:
-        return None
-    
-    try:
-        async with httpx.AsyncClient() as client:
-            headers = {"Authorization": f"Bearer {jwt.encode({'sub': user_id}, JWT_SECRET_KEY, algorithm=ALGORITHM)}"}
-            response = await client.get(f"{AUTH_SERVICE_URL}/auth/me", headers=headers)
-            if response.status_code == 200:
-                return response.json()
-    except Exception:
-        pass
-    return None
-
-# In-memory cart storage (in production, use database with user sessions)
-carts_db = {}
-# User-based carts (for authenticated users)
-user_carts_db = {}
-
-# API Endpoints
+# Simple in-memory cart
+cart = {}
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to Luxe Jewelry Store API"}
+    return {"message": "Welcome to Simple Jewelry Store API"}
 
-@app.get("/api/products", response_model=List[Product])
-async def get_products(category: Optional[str] = None):
-    """Get all products or filter by category"""
-    if category:
-        filtered_products = [p for p in products_db if p["category"] == category]
-        return filtered_products
+# Products endpoints
+@app.get("/products", response_model=List[Dict])
+async def get_products():
+    """Get all products"""
     return products_db
 
-@app.get("/api/products/{product_id}", response_model=Product)
+@app.get("/products/{product_id}", response_model=Dict)
 async def get_product(product_id: int):
     """Get a specific product by ID"""
-    product = next((p for p in products_db if p["id"] == product_id), None)
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    return product
+    for product in products_db:
+        if product["id"] == product_id:
+            return product
+    raise HTTPException(status_code=404, detail="Product not found")
 
-@app.post("/api/cart/{session_id}/add")
-async def add_to_cart(
-    session_id: str, 
-    item: CartItemRequest,
-    current_user: dict = Depends(get_current_user)
-):
-    """Add item to cart for authenticated or anonymous user"""
-    # Find the product
-    product = next((p for p in products_db if p["id"] == item.product_id), None)
+@app.post("/cart/{item_id}")
+async def add_to_cart(item_id: int, quantity: int = 1):
+    """Add item to cart"""
+    product = next((p for p in products_db if p["id"] == item_id), None)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     
-    # Determine which cart to use
-    if current_user:
-        user_id = current_user["id"]
-        if user_id not in user_carts_db:
-            user_carts_db[user_id] = []
-        cart = user_carts_db[user_id]
+    if item_id in cart:
+        cart[item_id]["quantity"] += quantity
     else:
-        if session_id not in carts_db:
-            carts_db[session_id] = []
-        cart = carts_db[session_id]
-    
-    # Check if item already exists in cart
-    existing_item = next((cart_item for cart_item in cart 
-                         if cart_item["product_id"] == item.product_id), None)
-    
-    if existing_item:
-        # Update quantity if item exists
-        existing_item["quantity"] += item.quantity
-    else:
-        # Add new item to cart
-        cart_item = {
-            "id": str(uuid.uuid4()),
-            "product_id": item.product_id,
-            "quantity": item.quantity,
-            "added_at": datetime.now().isoformat()
+        cart[item_id] = {
+            "product": product,
+            "quantity": quantity
         }
-        cart.append(cart_item)
     
-    return {"message": "Item added to cart", "cart_items": len(cart)}
+    return {"message": f"Added {quantity}x {product['name']} to cart"}
 
-@app.get("/api/cart", response_model=List[CartItem])
-async def get_cart(
-    session_id: str = "default",
-    current_user: dict = Depends(get_current_user)
-):
-    """Get cart items for a session or authenticated user"""
-    if current_user:
-        # Return user's cart if authenticated
-        user_id = current_user["id"]
-        return user_carts_db.get(user_id, [])
-    else:
-        # Return session-based cart for anonymous users
-        return carts_db.get(session_id, [])
-
-@app.delete("/api/cart/{session_id}/item/{item_id}")
-async def remove_from_cart(
-    session_id: str, 
-    item_id: str,
-    current_user: dict = Depends(get_current_user)
-):
-    """Remove item from cart for authenticated or anonymous user"""
-    # Determine which cart to use
-    if current_user:
-        user_id = current_user["id"]
-        if user_id not in user_carts_db:
-            raise HTTPException(status_code=404, detail="Cart not found")
-        cart = user_carts_db[user_id]
-    else:
-        if session_id not in carts_db:
-            raise HTTPException(status_code=404, detail="Cart not found")
-        cart = carts_db[session_id]
+@app.get("/cart")
+async def view_cart():
+    """View cart contents"""
+    items = []
+    total = 0
     
-    # Find and remove the item
-    item_to_remove = next((item for item in cart if item["id"] == item_id), None)
+    for item_id, item in cart.items():
+        product = item["product"]
+        quantity = item["quantity"]
+        subtotal = product["price"] * quantity
+        total += subtotal
+        
+        items.append({
+            "product_id": item_id,
+            "name": product["name"],
+            "price": product["price"],
+            "quantity": quantity,
+            "subtotal": subtotal
+        })
     
-    if not item_to_remove:
-        raise HTTPException(status_code=404, detail="Item not found in cart")
-    
-    cart.remove(item_to_remove)
-    
-    return {"message": "Item removed from cart", "cart_items": len(cart)}
-
-@app.put("/api/cart/{session_id}/item/{item_id}")
-async def update_cart_item(
-    session_id: str, 
-    item_id: str, 
-    quantity: int,
-    current_user: dict = Depends(get_current_user)
-):
-    """Update cart item quantity for authenticated or anonymous user"""
-    # Determine which cart to use
-    if current_user:
-        user_id = current_user["id"]
-        if user_id not in user_carts_db:
-            raise HTTPException(status_code=404, detail="Cart not found")
-        cart = user_carts_db[user_id]
-    else:
-        if session_id not in carts_db:
-            raise HTTPException(status_code=404, detail="Cart not found")
-        cart = carts_db[session_id]
-    
-    # Find the item
-    item = next((item for item in cart if item["id"] == item_id), None)
-    
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found in cart")
-    
-    if quantity <= 0:
-        # Remove item if quantity is 0 or negative
-        cart.remove(item)
-        return {"message": "Item removed from cart"}
-    else:
-        item["quantity"] = quantity
-        return {"message": "Item quantity updated"}
-
-@app.delete("/api/cart/{session_id}")
-async def clear_cart(
-    session_id: str,
-    current_user: dict = Depends(get_current_user)
-):
-    """Clear entire cart for authenticated or anonymous user"""
-    # Determine which cart to use
-    if current_user:
-        user_id = current_user["id"]
-        if user_id in user_carts_db:
-            user_carts_db[user_id] = []
-    else:
-        if session_id in carts_db:
-            carts_db[session_id] = []
-    return {"message": "Cart cleared"}
-
-@app.get("/api/categories")
-async def get_categories():
-    """Get all product categories"""
-    categories = list(set(p["category"] for p in products_db))
-    return {"categories": categories}
+    return {
+        "items": items,
+        "total": total,
+        "item_count": len(items)
+    }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=5000)
