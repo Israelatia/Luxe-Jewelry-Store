@@ -30,8 +30,8 @@ pipeline {
         SEMVER_VERSION = "1.0.${env.BUILD_NUMBER}"
         DOCKER_BUILDKIT = 1
         COMPOSE_DOCKER_CLI_BUILD = 1
-        // SNYK_TOKEN is optional, will be set only if the credential exists
-        SNYK_TOKEN = ''
+        // Snyk token configuration
+        SNYK_TOKEN = credentials('synk')
     }
 
     options {
