@@ -3,14 +3,16 @@
 pipeline {
     agent {
         kubernetes {
+            label 'jenkins-agent'
             yaml '''
                 apiVersion: v1
                 kind: Pod
                 metadata:
+                  name: jenkins-agent
                   labels:
                     app: luxe-jenkins-agent
                 spec:
-                  serviceAccountName: jenkins-agent
+                  serviceAccountName: jenkins
                   containers:
                   - name: jnlp
                     image: jenkins/inbound-agent:latest
@@ -289,7 +291,7 @@ pipeline {
                 }
             }
         }
-
+    }
     post {
         always {
             echo 'Cleaning up Docker images and temporary files from Jenkins agent...'
