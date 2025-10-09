@@ -3,50 +3,16 @@
 pipeline {
     agent {
         kubernetes {
-            label 'jenkins-agent'
             yaml '''
                 apiVersion: v1
                 kind: Pod
-                metadata:
-                  name: jenkins-agent
-                  labels:
-                    app: luxe-jenkins-agent
                 spec:
-                  serviceAccountName: jenkins
                   containers:
-                  - name: jnlp
-                    image: jenkins/inbound-agent:latest
-                    args: ['\$(JENKINS_SECRET)', '\$(JENKINS_NAME)']
-                    resources:
-                      limits:
-                        cpu: "1"
-                        memory: "1Gi"
-                      requests:
-                        cpu: "500m"
-                        memory: "512Mi"
-                  - name: docker
-                    image: docker:20.10.21-dind
-                    securityContext:
-                      privileged: true
-                    resources:
-                      limits:
-                        cpu: "1"
-                        memory: "1Gi"
-                      requests:
-                        cpu: "500m"
-                        memory: "512Mi"
-                  - name: kubectl
-                    image: bitnami/kubectl:latest
+                  - name: jenkins-agent
+                    image: jenkins-agent:latest
                     command:
                     - cat
                     tty: true
-                    resources:
-                      limits:
-                        cpu: "500m"
-                        memory: "512Mi"
-                      requests:
-                        cpu: "100m"
-                        memory: "128Mi"
             '''
         }
     }
