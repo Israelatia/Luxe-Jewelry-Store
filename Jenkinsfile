@@ -2,9 +2,50 @@
 
 pipeline {
     agent {
-        docker {
-            image 'israelatia/luxe-jenkins-agent:latest'
-            args '--user root -v /var/run/docker.sock:/var/run/docker.sock -e GIT_DISCOVERY_ACROSS_FILESYSTEM=1'
+        kubernetes {
+            yaml '''
+                apiVersion: v1
+                kind: Pod
+                metadata:
+                  labels:
+                    app: luxe-jenkins-agent
+                spec:
+                  serviceAccountName: jenkins-agent
+                  containers:
+                  - name: jnlp
+                    image: jenkins/inbound-agent:latest
+                    args: ['\$(JENKINS_SECRET)', '\$(JENKINS_NAME)']
+                    resources:
+                      limits:
+                        cpu: "1"
+                        memory: "1Gi"
+                      requests:
+                        cpu: "500m"
+                        memory: "512Mi"
+                  - name: docker
+                    image: docker:20.10.21-dind
+                    securityContext:
+                      privileged: true
+                    resources:
+                      limits:
+                        cpu: "1"
+                        memory: "1Gi"
+                      requests:
+                        cpu: "500m"
+                        memory: "512Mi"
+                  - name: kubectl
+                    image: bitnami/kubectl:latest
+                    command:
+                    - cat
+                    tty: true
+                    resources:
+                      limits:
+                        cpu: "500m"
+                        memory: "512Mi"
+                      requests:
+                        cpu: "100m"
+                        memory: "128Mi"
+            '''
         }
     }
 
@@ -16,7 +57,9 @@ pipeline {
         SEMVER_VERSION = "1.0.${env.BUILD_NUMBER}"
         DOCKER_BUILDKIT = 1
         COMPOSE_DOCKER_CLI_BUILD = 1
-        SNYK_TOKEN = credentials('snyk') // Jenkins secret text
+        SNYK_TOKEN = credentials('snyk')
+        KUBECONFIG = "${env.WORKSPACE}/.kube/config"
+        K8S_NAMESPACE = 'demo-app'
     }
 
     options {
@@ -194,10 +237,56 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+        stage('Deploy to Kubernetes') {
             when { expression { params.DEPLOY_ENVIRONMENT != 'none' } }
             steps {
                 script {
+                    // Ensure namespace exists
+                    sh """
+                        kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                    """
+                    
+                    // Apply Kubernetes manifests
+                    dir('k8s') {
+                        // Apply PVCs first
+                        sh 'kubectl apply -f pvc.yaml -n ${K8S_NAMESPACE}'
+                        
+                        // Apply secrets if they exist
+                        if (fileExists('secrets.yaml')) {
+                            sh 'kubectl apply -f secrets.yaml -n ${K8S_NAMESPACE}'
+                        }
+                        
+                        // Apply config maps if they exist
+                        if (fileExists('configmap.yaml')) {
+                            sh 'kubectl apply -f configmap.yaml -n ${K8S_NAMESPACE}'
+                        }
+                        
+                        // Apply deployments and services
+                        sh 'kubectl apply -f backend-deployment.yaml,backend-service.yaml -n ${K8S_NAMESPACE}'
+                        sh 'kubectl apply -f frontend-deployment.yaml,frontend-service.yaml -n ${K8S_NAMESPACE}'
+                        
+                        // Apply HPA if exists
+                        if (fileExists('hpa.yaml')) {
+                            sh 'kubectl apply -f hpa.yaml -n ${K8S_NAMESPACE}'
+                        }
+                        
+                        // Apply ingress if exists and not in production
+                        if (fileExists('ingress.yaml') && params.DEPLOY_ENVIRONMENT != 'production') {
+                            sh 'kubectl apply -f ingress.yaml -n ${K8S_NAMESPACE}'
+                        }
+                    }
+                    
+                    // Wait for rollout to complete
+                    sh """
+                        kubectl rollout status deployment/luxe-backend -n ${K8S_NAMESPACE} --timeout=300s
+                        kubectl rollout status deployment/luxe-frontend -n ${K8S_NAMESPACE} --timeout=300s
+                    """
+                    
+                    // Get application URLs
+                    def frontendUrl = sh(script: "minikube service --url luxe-frontend -n ${K8S_NAMESPACE}", returnStdout: true).trim()
+                    echo "Frontend is available at: ${frontendUrl}"
+                }
+            }
                     deployApplication(
                         environment: params.DEPLOY_ENVIRONMENT,
                         registry: DOCKER_REGISTRY,

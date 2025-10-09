@@ -1,0 +1,6 @@
+apiVersion: v2
+name: luxe-jewelry-store
+description: A Helm chart for Luxe Jewelry Store
+version: 0.1.0
+appVersion: "1.0.0"
+type: application
