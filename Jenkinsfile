@@ -285,20 +285,10 @@ pipeline {
                     // Get application URLs
                     def frontendUrl = sh(script: "minikube service --url luxe-frontend -n ${K8S_NAMESPACE}", returnStdout: true).trim()
                     echo "Frontend is available at: ${frontendUrl}"
-                }
-            }
-                    deployApplication(
-                        environment: params.DEPLOY_ENVIRONMENT,
-                        registry: DOCKER_REGISTRY,
-                        appName: APP_NAME,
-                        composeFile: "docker-compose.${params.DEPLOY_ENVIRONMENT}.yml",
-                        healthCheck: true,
-                        timeout: 300
-                    )
+                    echo 'Deployment completed successfully'
                 }
             }
         }
-    }
 
     post {
         always {
