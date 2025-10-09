@@ -13,6 +13,8 @@ spec:
       labels:
         app: luxe-frontend
     spec:
+      imagePullSecrets:
+      - name: docker-hub-creds
       containers:
       - name: luxe-frontend
         image: israelatia/luxe-jewelry-store-frontend:latest
