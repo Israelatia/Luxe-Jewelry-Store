@@ -1,21 +1,21 @@
 @Library('luxe-shared-library') _
 
 pipeline {
-    agent {
-        kubernetes {
-            yaml '''
-                apiVersion: v1
-                kind: Pod
-                spec:
-                  containers:
-                  - name: jenkins-agent
-                    image: jenkins-agent:latest
-                    command:
-                    - cat
-                    tty: true
-            '''
-        }
+  agent {
+    kubernetes {
+      yaml '''
+        apiVersion: v1
+        kind: Pod
+        spec:
+          containers:
+          - name: jenkins-agent
+            image: jenkins-agent:latest
+            command:
+            - cat
+            tty: true
+        '''
     }
+  }
 
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
