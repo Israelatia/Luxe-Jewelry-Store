@@ -229,13 +229,10 @@ spec:
             }
         }
     }
-
+    
     post {
-        always {
-            node {
-                echo "Cleaning up Docker images and temporary files..."
-                sh 'docker system prune -af || true'
-            }
-        }
+    always {
+        echo "Cleaning up Docker images and temporary files..."
+        sh 'docker system prune -af || true'
     }
 }
