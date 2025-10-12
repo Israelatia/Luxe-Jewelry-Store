@@ -1,21 +1,21 @@
 @Library('luxe-shared-library') _
 
 pipeline {
-  agent {
-    kubernetes {
-      yaml '''
-        apiVersion: v1
-        kind: Pod
-        spec:
-          containers:
-          - name: jenkins-agent
-            image: jenkins-agent:latest
-            command:
-            - cat
-            tty: true
-        '''
+    agent {
+        kubernetes {
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: jnlp
+    image: jenkins/inbound-agent:latest
+    command:
+    - cat
+    tty: true
+            '''
+        }
     }
-  }
 
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
@@ -209,59 +209,23 @@ pipeline {
             when { expression { params.DEPLOY_ENVIRONMENT != 'none' } }
             steps {
                 script {
-                    // Ensure namespace exists
                     sh """
                         kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
-                    """
-                    
-                    // Apply Kubernetes manifests
-                    dir('k8s') {
-                        // Apply PVCs first
-                        sh 'kubectl apply -f pvc.yaml -n ${K8S_NAMESPACE}'
-                        
-                        // Apply secrets if they exist
-                        if (fileExists('secrets.yaml')) {
-                            sh 'kubectl apply -f secrets.yaml -n ${K8S_NAMESPACE}'
-                        }
-                        
-                        // Apply config maps if they exist
-                        if (fileExists('configmap.yaml')) {
-                            sh 'kubectl apply -f configmap.yaml -n ${K8S_NAMESPACE}'
-                        }
-                        
-                        // Apply deployments and services
-                        sh 'kubectl apply -f backend-deployment.yaml,backend-service.yaml -n ${K8S_NAMESPACE}'
-                        sh 'kubectl apply -f frontend-deployment.yaml,frontend-service.yaml -n ${K8S_NAMESPACE}'
-                        
-                        // Apply HPA if exists
-                        if (fileExists('hpa.yaml')) {
-                            sh 'kubectl apply -f hpa.yaml -n ${K8S_NAMESPACE}'
-                        }
-                        
-                        // Apply ingress if exists and not in production
-                        if (fileExists('ingress.yaml') && params.DEPLOY_ENVIRONMENT != 'production') {
-                            sh 'kubectl apply -f ingress.yaml -n ${K8S_NAMESPACE}'
-                        }
-                    }
-                    
-                    // Wait for rollout to complete
-                    sh """
+                        kubectl apply -f k8s/ -n ${K8S_NAMESPACE}
                         kubectl rollout status deployment/luxe-backend -n ${K8S_NAMESPACE} --timeout=300s
                         kubectl rollout status deployment/luxe-frontend -n ${K8S_NAMESPACE} --timeout=300s
                     """
-                    
-                    // Get application URLs
                     def frontendUrl = sh(script: "minikube service --url luxe-frontend -n ${K8S_NAMESPACE}", returnStdout: true).trim()
                     echo "Frontend is available at: ${frontendUrl}"
-                    echo 'Deployment completed successfully'
                 }
             }
         }
     }
+
     post {
         always {
-            echo 'Cleaning up Docker images and temporary files from Jenkins agent...'
-            sh 'docker system prune -f || true'
+            echo "Cleaning up..."
+            sh 'docker system prune -af || true'
         }
     }
 }
