@@ -3,7 +3,7 @@
 pipeline {
     agent {
         kubernetes {
-            yaml '''
+            yaml """
 apiVersion: v1
 kind: Pod
 spec:
@@ -13,7 +13,7 @@ spec:
     command:
     - cat
     tty: true
-            '''
+"""
         }
     }
 
@@ -45,19 +45,18 @@ spec:
     }
 
     stages {
+
         stage('Clean Workspace') {
-            steps {
-                deleteDir()
-            }
+            steps { deleteDir() }
         }
 
         stage('Checkout') {
             steps {
                 script {
-                    sh '''
+                    sh """
                         git config --global --add safe.directory '*'
                         git config --global --add safe.directory ${WORKSPACE}
-                    '''
+                    """
                     checkout([
                         $class: 'GitSCM',
                         branches: [[name: '*/main']],
@@ -98,9 +97,7 @@ spec:
                         }
                     }
                     post {
-                        always {
-                            junit allowEmptyResults: true, testResults: 'backend/results.xml'
-                        }
+                        always { junit allowEmptyResults: true, testResults: 'backend/results.xml' }
                     }
                 }
 
@@ -209,14 +206,25 @@ spec:
             when { expression { params.DEPLOY_ENVIRONMENT != 'none' } }
             steps {
                 script {
+                    sh "kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -"
+                    dir('k8s') {
+                        sh 'kubectl apply -f pvc.yaml -n ${K8S_NAMESPACE}'
+                        if (fileExists('secrets.yaml')) { sh 'kubectl apply -f secrets.yaml -n ${K8S_NAMESPACE}' }
+                        if (fileExists('configmap.yaml')) { sh 'kubectl apply -f configmap.yaml -n ${K8S_NAMESPACE}' }
+                        sh 'kubectl apply -f backend-deployment.yaml,backend-service.yaml -n ${K8S_NAMESPACE}'
+                        sh 'kubectl apply -f frontend-deployment.yaml,frontend-service.yaml -n ${K8S_NAMESPACE}'
+                        if (fileExists('hpa.yaml')) { sh 'kubectl apply -f hpa.yaml -n ${K8S_NAMESPACE}' }
+                        if (fileExists('ingress.yaml') && params.DEPLOY_ENVIRONMENT != 'production') {
+                            sh 'kubectl apply -f ingress.yaml -n ${K8S_NAMESPACE}'
+                        }
+                    }
                     sh """
-                        kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
-                        kubectl apply -f k8s/ -n ${K8S_NAMESPACE}
                         kubectl rollout status deployment/luxe-backend -n ${K8S_NAMESPACE} --timeout=300s
                         kubectl rollout status deployment/luxe-frontend -n ${K8S_NAMESPACE} --timeout=300s
                     """
                     def frontendUrl = sh(script: "minikube service --url luxe-frontend -n ${K8S_NAMESPACE}", returnStdout: true).trim()
                     echo "Frontend is available at: ${frontendUrl}"
+                    echo 'Deployment completed successfully'
                 }
             }
         }
@@ -224,8 +232,10 @@ spec:
 
     post {
         always {
-            echo "Cleaning up..."
-            sh 'docker system prune -af || true'
+            node {
+                echo "Cleaning up Docker images and temporary files..."
+                sh 'docker system prune -af || true'
+            }
         }
     }
 }
