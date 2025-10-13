@@ -6,40 +6,48 @@ pipeline {
 apiVersion: v1
 kind: Pod
 spec:
+  serviceAccountName: jenkins
   containers:
   - name: jnlp
     image: jenkins/inbound-agent:latest
     resources:
       requests:
-        memory: "128Mi"
-        cpu: "50m"
-      limits:
         memory: "256Mi"
         cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "200m"
   - name: tools
     image: israelatia/luxe-jenkins-agent:latest
-    command:
-    - sleep
-    args:
-    - 99d
+    command: ["sleep"]
+    args: ["99d"]
+    env:
+    - name: DOCKER_HOST
+      value: tcp://localhost:2375
     resources:
       requests:
-        memory: "128Mi"
-        cpu: "50m"
-      limits:
         memory: "256Mi"
         cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "200m"
+  - name: dind
+    image: docker:20.10.7-dind
+    securityContext:
+      privileged: true
     volumeMounts:
-    - name: tools-volume
-      mountPath: /tools
-    - name: docker-sock
-      mountPath: /var/run/docker.sock
+    - name: dind-storage
+      mountPath: /var/lib/docker
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
   volumes:
-  - name: tools-volume
+  - name: dind-storage
     emptyDir: {}
-  - name: docker-sock
-    hostPath:
-      path: /var/run/docker.sock
 """
         }
     }
