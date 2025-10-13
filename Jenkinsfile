@@ -11,11 +11,11 @@ spec:
     image: jenkins/inbound-agent:latest-jdk11
     resources:
       requests:
+        memory: "128Mi"
+        cpu: "50m"
+      limits:
         memory: "256Mi"
         cpu: "100m"
-      limits:
-        memory: "512Mi"
-        cpu: "250m"
   - name: tools
     image: israelatia/luxe-jenkins-agent:latest
     command:
@@ -24,11 +24,11 @@ spec:
     - 99d
     resources:
       requests:
+        memory: "128Mi"
+        cpu: "50m"
+      limits:
         memory: "256Mi"
         cpu: "100m"
-      limits:
-        memory: "512Mi"
-        cpu: "250m"
     volumeMounts:
     - name: tools-volume
       mountPath: /tools
