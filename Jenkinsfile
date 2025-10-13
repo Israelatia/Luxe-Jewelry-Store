@@ -13,6 +13,13 @@ spec:
     command:
     - cat
     tty: true
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
 """
         }
     }
@@ -210,30 +217,4 @@ spec:
                     dir('k8s') {
                         sh 'kubectl apply -f pvc.yaml -n ${K8S_NAMESPACE}'
                         if (fileExists('secrets.yaml')) { sh 'kubectl apply -f secrets.yaml -n ${K8S_NAMESPACE}' }
-                        if (fileExists('configmap.yaml')) { sh 'kubectl apply -f configmap.yaml -n ${K8S_NAMESPACE}' }
-                        sh 'kubectl apply -f backend-deployment.yaml,backend-service.yaml -n ${K8S_NAMESPACE}'
-                        sh 'kubectl apply -f frontend-deployment.yaml,frontend-service.yaml -n ${K8S_NAMESPACE}'
-                        if (fileExists('hpa.yaml')) { sh 'kubectl apply -f hpa.yaml -n ${K8S_NAMESPACE}' }
-                        if (fileExists('ingress.yaml') && params.DEPLOY_ENVIRONMENT != 'production') {
-                            sh 'kubectl apply -f ingress.yaml -n ${K8S_NAMESPACE}'
-                        }
-                    }
-                    sh """
-                        kubectl rollout status deployment/luxe-backend -n ${K8S_NAMESPACE} --timeout=300s
-                        kubectl rollout status deployment/luxe-frontend -n ${K8S_NAMESPACE} --timeout=300s
-                    """
-                    def frontendUrl = sh(script: "minikube service --url luxe-frontend -n ${K8S_NAMESPACE}", returnStdout: true).trim()
-                    echo "Frontend is available at: ${frontendUrl}"
-                    echo 'Deployment completed successfully'
-                }
-            }
-        }
-    }
-    
-    post {
-    always {
-        echo "Cleaning up Docker images and temporary files..."
-        sh 'docker system prune -af || true'
-    }
-}
-}
+                        if (fileExists('conf
