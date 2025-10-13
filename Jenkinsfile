@@ -51,6 +51,9 @@ spec:
     volumeMounts:
     - name: tools-volume
       mountPath: /tools
+  volumes:
+  - name: tools-volume
+    emptyDir: {}
 """
         }
     }
