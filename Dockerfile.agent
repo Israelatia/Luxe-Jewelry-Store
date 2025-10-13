@@ -1,4 +1,4 @@
-FROM jenkins/agent:latest
+FROM jenkins/inbound-agent:latest
 
 USER root
 
