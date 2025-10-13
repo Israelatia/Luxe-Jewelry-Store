@@ -1,7 +1,6 @@
-pipeline {
     agent {
         kubernetes {
-            webSocket true
+            defaultContainer 'jnlp'
             yaml """
 apiVersion: v1
 kind: Pod
@@ -18,6 +17,10 @@ spec:
         cpu: "250m"
   - name: tools
     image: israelatia/luxe-jenkins-agent:latest
+    command:
+    - sleep
+    args:
+    - 99d
     resources:
       requests:
         memory: "256Mi"
