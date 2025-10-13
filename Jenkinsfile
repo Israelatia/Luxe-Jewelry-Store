@@ -8,9 +8,6 @@ spec:
   containers:
   - name: jnlp
     image: jenkins/inbound-agent:latest
-    command:
-    - cat
-    tty: true
     resources:
       requests:
         memory: "512Mi"
@@ -33,9 +30,14 @@ spec:
     volumeMounts:
     - name: tools-volume
       mountPath: /tools
+    - name: docker-sock
+      mountPath: /var/run/docker.sock
   volumes:
   - name: tools-volume
     emptyDir: {}
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
 """
         }
     }
@@ -79,6 +81,8 @@ spec:
                     sh """
                         git config --global --add safe.directory '*'
                         git config --global --add safe.directory ${WORKSPACE}
+                        git config --global user.email "jenkins@localhost"
+                        git config --global user.name "Jenkins"
                     """
                     checkout([
                         $class: 'GitSCM',
@@ -89,6 +93,7 @@ spec:
                         ]],
                         extensions: [[ $class: 'CleanBeforeCheckout' ]]
                     ])
+                    sh 'ls -la'
                     env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
                     env.IMAGE_TAG_COMMIT = "commit-${env.GIT_COMMIT_SHORT}"
                 }
