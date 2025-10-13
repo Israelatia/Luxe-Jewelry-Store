@@ -10,23 +10,20 @@ spec:
     image: jenkins/inbound-agent:latest
     resources:
       requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
         memory: "512Mi"
         cpu: "250m"
-      limits:
-        memory: "1Gi"
-        cpu: "500m"
   - name: tools
     image: israelatia/luxe-jenkins-agent:latest
-    command:
-    - cat
-    tty: true
     resources:
       requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
         memory: "512Mi"
         cpu: "250m"
-      limits:
-        memory: "1Gi"
-        cpu: "500m"
     volumeMounts:
     - name: tools-volume
       mountPath: /tools
