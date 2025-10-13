@@ -1,13 +1,14 @@
 pipeline {
     agent {
         kubernetes {
+            webSocket true
             yaml """
 apiVersion: v1
 kind: Pod
 spec:
   containers:
   - name: jnlp
-    image: jenkins/inbound-agent:latest
+    image: jenkins/inbound-agent:latest-jdk11
     resources:
       requests:
         memory: "256Mi"
