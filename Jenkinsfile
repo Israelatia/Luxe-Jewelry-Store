@@ -217,4 +217,15 @@ spec:
                     dir('k8s') {
                         sh 'kubectl apply -f pvc.yaml -n ${K8S_NAMESPACE}'
                         if (fileExists('secrets.yaml')) { sh 'kubectl apply -f secrets.yaml -n ${K8S_NAMESPACE}' }
-                        if (fileExists('conf
+                        if (fileExists('ingress.yaml')) { sh 'kubectl apply -f ingress.yaml -n ${K8S_NAMESPACE}' }
+                        if (fileExists('backend-deployment.yaml')) { sh 'kubectl apply -f backend-deployment.yaml -n ${K8S_NAMESPACE}' }
+                        if (fileExists('frontend-deployment.yaml')) { sh 'kubectl apply -f frontend-deployment.yaml -n ${K8S_NAMESPACE}' }
+                        if (fileExists('backend-service.yaml')) { sh 'kubectl apply -f backend-service.yaml -n ${K8S_NAMESPACE}' }
+                        if (fileExists('frontend-service.yaml')) { sh 'kubectl apply -f frontend-service.yaml -n ${K8S_NAMESPACE}' }
+                        if (fileExists('hpa.yaml')) { sh 'kubectl apply -f hpa.yaml -n ${K8S_NAMESPACE}' }
+                    }
+                }
+            }
+        }
+    }
+}
