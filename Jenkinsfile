@@ -5,24 +5,6 @@ pipeline {
 apiVersion: v1
 kind: Pod
 spec:
-  initContainers:
-  - name: tools-setup
-    image: israelatia/luxe-jenkins-agent:latest
-    command:
-    - sh
-    - -c
-    - |
-      snyk --version || (curl -sSL https://static.snyk.io/cli/latest/snyk-linux -o /usr/local/bin/snyk && chmod +x /usr/local/bin/snyk)
-    volumeMounts:
-    - name: tools-volume
-      mountPath: /tools
-    resources:
-      requests:
-        memory: "512Mi"
-        cpu: "250m"
-      limits:
-        memory: "1Gi"
-        cpu: "500m"
   containers:
   - name: jnlp
     image: jenkins/inbound-agent:latest
