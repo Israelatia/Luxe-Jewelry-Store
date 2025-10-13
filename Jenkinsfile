@@ -6,8 +6,6 @@ pipeline {
 apiVersion: v1
 kind: Pod
 spec:
-  securityContext:
-    runAsUser: 0
   containers:
   - name: jnlp
     image: jenkins/inbound-agent:latest
@@ -22,6 +20,8 @@ spec:
     image: israelatia/luxe-jenkins-agent:latest
     command: ["sleep"]
     args: ["99d"]
+    securityContext:
+      privileged: true
     volumeMounts:
     - name: docker-sock
       mountPath: /var/run/docker.sock
