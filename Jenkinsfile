@@ -8,7 +8,7 @@ kind: Pod
 spec:
   containers:
   - name: jnlp
-    image: jenkins/inbound-agent:latest-jdk11
+    image: jenkins/inbound-agent:latest
     resources:
       requests:
         memory: "128Mi"
