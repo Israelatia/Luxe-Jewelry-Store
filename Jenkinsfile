@@ -220,9 +220,8 @@ pipeline {
     }
     
     post {
-    always {
-        echo "Cleaning up Docker images and temporary files..."
-        sh 'docker system prune -af || true'
+        always {
+            echo "Pipeline completed."
+        }
     }
-}
 }
