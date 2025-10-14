@@ -1,27 +1,30 @@
 pipeline {
     agent {
         kubernetes {
-            yaml '''
+            yaml """
 apiVersion: v1
 kind: Pod
 spec:
   containers:
   - name: jenkins-agent
-    image: 'israelatia/jenkins-agent:latest'
-
+    image: jenkins-agent:latest
     command:
     - cat
     tty: true
-    volumeMounts:
-    - name: docker-sock
-      mountPath: /var/run/docker.sock
-  volumes:
-  - name: docker-sock
-    hostPath:
-      path: /var/run/docker.sock
-'''
+"""
         }
     }
+    stages {
+        stage('Test') {
+            steps {
+                container('jenkins-agent') {
+                    sh 'echo "Hello from custom Jenkins agent!"'
+                }
+            }
+        }
+    }
+}
+
 
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
