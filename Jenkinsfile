@@ -1,48 +1,20 @@
 pipeline {
     agent {
         kubernetes {
-            defaultContainer 'jnlp'
-            yaml """
+            yaml '''
 apiVersion: v1
 kind: Pod
 spec:
   containers:
-  - name: jnlp
-    image: jenkins/inbound-agent:latest
-    env:
-      - name: JENKINS_URL
-        value: "http://jenkins:8080/"
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "100m"
-      limits:
-        memory: "512Mi"
-        cpu: "200m"
-
-  - name: tools
-    image: israelatia/luxe-jenkins-agent:latest
-    command: ["sleep"]
-    args: ["99d"]
-    securityContext:
-      privileged: true
-    volumeMounts:
-    - name: docker-sock
-      mountPath: /var/run/docker.sock
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "100m"
-      limits:
-        memory: "512Mi"
-        cpu: "200m"
-  volumes:
-  - name: docker-sock
-    hostPath:
-      path: /var/run/docker.sock
-"""
+  - name: jenkins-agent
+    image: jenkins-agent:latest
+    command:
+    - cat
+    tty: true
+'''
         }
     }
+}
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
         NEXUS_REGISTRY = 'localhost:8082'
