@@ -7,7 +7,7 @@ kind: Pod
 spec:
   containers:
   - name: jenkins-agent
-    image: 'YOUR_DOCKERHUB_USERNAME/jenkins-agent:latest'
+    image: 'israelatia/jenkins-agent:latest'
 
     command:
     - cat
