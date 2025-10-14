@@ -9,6 +9,9 @@ spec:
   containers:
   - name: jnlp
     image: jenkins/inbound-agent:latest
+    env:
+      - name: JENKINS_URL
+        value: "http://192.168.49.2:8080/"
     resources:
       requests:
         memory: "256Mi"
@@ -39,7 +42,6 @@ spec:
 """
         }
     }
-
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
         NEXUS_REGISTRY = 'localhost:8082'
