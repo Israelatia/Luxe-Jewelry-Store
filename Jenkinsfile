@@ -7,7 +7,8 @@ kind: Pod
 spec:
   containers:
   - name: jenkins-agent
-    image: jenkins-agent:latest
+    image: 'YOUR_DOCKERHUB_USERNAME/jenkins-agent:latest'
+
     command:
     - cat
     tty: true
