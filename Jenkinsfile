@@ -8,6 +8,7 @@ spec:
   containers:
   - name: jenkins-agent
     image: jenkins-agent:latest
+    imagePullPolicy: IfNotPresent
     command:
     - cat
     tty: true
