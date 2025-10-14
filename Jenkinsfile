@@ -11,10 +11,17 @@ spec:
     command:
     - cat
     tty: true
+    volumeMounts:
+    - name: docker-sock
+      mountPath: /var/run/docker.sock
+  volumes:
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
 '''
         }
     }
-}
+
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
         NEXUS_REGISTRY = 'localhost:8082'
@@ -230,7 +237,7 @@ spec:
             }
         }
     }
-    
+
     post {
         always {
             echo "Pipeline completed."
