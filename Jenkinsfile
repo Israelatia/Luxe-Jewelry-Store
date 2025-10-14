@@ -11,7 +11,7 @@ spec:
     image: jenkins/inbound-agent:latest
     env:
       - name: JENKINS_URL
-        value: "http://192.168.49.2:8080/"
+        value: "http://jenkins:8080/"
     resources:
       requests:
         memory: "256Mi"
@@ -19,6 +19,7 @@ spec:
       limits:
         memory: "512Mi"
         cpu: "200m"
+
   - name: tools
     image: israelatia/luxe-jenkins-agent:latest
     command: ["sleep"]
