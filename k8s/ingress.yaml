@@ -8,7 +8,7 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   rules:
-  - host: luxe.local   
+  - host: luxe.local
     http:
       paths:
       - path: /
