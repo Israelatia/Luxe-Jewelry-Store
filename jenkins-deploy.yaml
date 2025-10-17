@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+  namespace: jenkins
+  labels:
+    app: jenkins
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jenkins
+  template:
+    metadata:
+      labels:
+        app: jenkins
+    spec:
+      containers:
+        - name: jenkins
+          image: jenkins/jenkins:lts-jdk17
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: JENKINS_OPTS
+              value: "--prefix=/jenkins"
+            - name: JENKINS_AGENT_PORT
+              value: "50000"
+          ports:
+            - containerPort: 8080
+              name: web
+            - containerPort: 50000
+              name: agent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins
+  namespace: jenkins
+  labels:
+    app: jenkins
+spec:
+  selector:
+    app: jenkins
+  ports:
+    - name: web
+      port: 8080
+      targetPort: 8080
+    - name: agent
+      port: 50000
+      targetPort: 50000
+  type: ClusterIP
