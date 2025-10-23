@@ -46,6 +46,6 @@ spec:
         livenessProbe:
           httpGet:
             path: /
-            port: 8000
+            port: 5000
           initialDelaySeconds: 15
           periodSeconds: 20
