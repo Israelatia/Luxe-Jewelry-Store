@@ -1,24 +1,46 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "my-python-app.fullname" . }}
+  name: {{ include "luxe-backend.fullname" . }}
+  namespace: demo-app
   labels:
-    app: {{ include "my-python-app.name" . }}
+    app: {{ include "luxe-backend.name" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
-      app: {{ include "my-python-app.name" . }}
+      app: {{ include "luxe-backend.name" . }}
   template:
     metadata:
       labels:
-        app: {{ include "my-python-app.name" . }}
+        app: {{ include "luxe-backend.name" . }}
     spec:
+      imagePullSecrets:
+{{- toYaml .Values.imagePullSecrets | nindent 8 }}
       containers:
-        - name: my-python-app
+        - name: {{ include "luxe-backend.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - name: http
-              containerPort: 8080
-              protocol: TCP
+            - containerPort: {{ .Values.service.port }}
+          env:
+{{- toYaml .Values.env | nindent 12 }}
+          resources:
+{{- toYaml .Values.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.readinessProbe.path }}
+              port: {{ .Values.readinessProbe.port }}
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.livenessProbe.path }}
+              port: {{ .Values.livenessProbe.port }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}

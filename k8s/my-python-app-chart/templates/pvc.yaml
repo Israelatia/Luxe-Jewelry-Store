@@ -1,0 +1,16 @@
+{{- if .Values.pvc.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "frontend.fullname" . }}-pvc
+spec:
+  accessModes:
+{{- range .Values.pvc.accessModes }}
+    - {{ . }}
+{{- end }}
+  resources:
+{{- toYaml .Values.pvc.resources | nindent 4 }}
+{{- if .Values.pvc.storageClassName }}
+  storageClassName: {{ .Values.pvc.storageClassName }}
+{{- end }}
+{{- end }}

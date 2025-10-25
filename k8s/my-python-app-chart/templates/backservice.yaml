@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "my-python-app.fullname" . }}
+  namespace: demo-app
+  labels:
+    app: {{ include "my-python-app.name" . }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ include "my-python-app.name" . }}
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
