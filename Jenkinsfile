@@ -1,7 +1,7 @@
 pipeline {
     agent {
         kubernetes {
-            // Fixed pod template
+            // Fixed pod template with proper jnlp
             yaml """
 apiVersion: v1
 kind: Pod
@@ -10,6 +10,7 @@ spec:
   - name: jnlp
     image: jenkins/inbound-agent:latest
     args: ['\${computer.jnlpmac}', '\${computer.name}']
+    tty: true
   - name: jenkins-agent
     image: israelatia/jenkins-agent:latest
     command:
@@ -28,9 +29,6 @@ spec:
         }
     }
 }
-
-
-
 
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
