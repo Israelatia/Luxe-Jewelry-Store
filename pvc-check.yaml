@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jenkins-pvc-check
+  namespace: jenkins
+spec:
+  containers:
+  - name: check
+    image: busybox
+    command: ["sleep", "3600"]
+    volumeMounts:
+    - name: jenkins-home
+      mountPath: /mnt/jenkins
+  volumes:
+  - name: jenkins-home
+    persistentVolumeClaim:
+      claimName: jenkins-pvc
+  restartPolicy: Never
+
