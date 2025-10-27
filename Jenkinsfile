@@ -1,7 +1,6 @@
 pipeline {
     agent {
         kubernetes {
-            // Pod template with proper jnlp and custom agent container
             yaml """
 apiVersion: v1
 kind: Pod
@@ -9,15 +8,17 @@ spec:
   containers:
   - name: jnlp
     image: jenkins/inbound-agent:latest
+    args: ['\$(JENKINS_SECRET)', '\$(JENKINS_AGENT_NAME)']
     tty: true
   - name: jenkins-agent
     image: israelatia/jenkins-agent:latest
     command:
-    - cat
+      - cat
     tty: true
 """
         }
     }
+
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
         NEXUS_REGISTRY = 'localhost:8082'
