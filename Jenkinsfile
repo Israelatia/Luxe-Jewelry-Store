@@ -1,17 +1,17 @@
 pipeline {
     agent {
         kubernetes {
-            label 'luxe-jenkins-agent'  // Pod label
+            // Fixed pod template
             yaml """
 apiVersion: v1
 kind: Pod
 spec:
   containers:
   - name: jnlp
-    image: jenkins/inbound-agent:lts
+    image: jenkins/inbound-agent:latest
     args: ['\${computer.jnlpmac}', '\${computer.name}']
   - name: jenkins-agent
-    image: jenkins-agent:latest
+    image: israelatia/jenkins-agent:latest
     command:
     - cat
     tty: true
@@ -28,6 +28,7 @@ spec:
         }
     }
 }
+
 
 
 
