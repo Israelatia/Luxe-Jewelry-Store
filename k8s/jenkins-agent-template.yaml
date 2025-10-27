@@ -9,6 +9,9 @@ spec:
   - name: jnlp
     image: jenkins/inbound-agent:latest
     args: ['$(JENKINS_SECRET)', '$(JENKINS_AGENT_NAME)']
+    env:
+      - name: JENKINS_URL
+        value: "http://192.168.49.2:8080/"
     tty: true
   - name: jenkins-agent
     image: israelatia/jenkins-agent:latest
@@ -22,4 +25,3 @@ spec:
     - name: docker-sock
       hostPath:
         path: /var/run/docker.sock
-
