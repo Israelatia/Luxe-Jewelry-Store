@@ -1,6 +1,7 @@
 pipeline {
     agent {
         kubernetes {
+            // Correct pod template: JNLP connects properly
             yaml """
 apiVersion: v1
 kind: Pod
@@ -18,6 +19,7 @@ spec:
 """
         }
     }
+
 
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
