@@ -1,7 +1,7 @@
 pipeline {
     agent {
         kubernetes {
-            // Fixed pod template with proper jnlp that stays alive
+            // Pod template with proper jnlp and custom agent container
             yaml """
 apiVersion: v1
 kind: Pod
@@ -9,8 +9,6 @@ spec:
   containers:
   - name: jnlp
     image: jenkins/inbound-agent:latest
-    args: ['\${computer.jnlpmac}', '\${computer.name}']
-    command: ["sleep", "infinity"]
     tty: true
   - name: jenkins-agent
     image: israelatia/jenkins-agent:latest
@@ -20,7 +18,6 @@ spec:
 """
         }
     }
-
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
         NEXUS_REGISTRY = 'localhost:8082'
