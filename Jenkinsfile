@@ -1,26 +1,10 @@
 pipeline {
     agent {
         kubernetes {
-            // Correct pod template: JNLP connects properly
-            yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-  - name: jnlp
-    image: jenkins/inbound-agent:latest
-    args: ['\$(JENKINS_SECRET)', '\$(JENKINS_AGENT_NAME)']
-    tty: true
-  - name: jenkins-agent
-    image: israelatia/jenkins-agent:latest
-    command:
-      - cat
-    tty: true
-"""
+            // Use external pod template file for JNLP + Jenkins agent
+            yamlFile 'k8s/jenkins-agent-template.yaml'
         }
     }
-
-
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
         NEXUS_REGISTRY = 'localhost:8082'
