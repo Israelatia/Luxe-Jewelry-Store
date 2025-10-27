@@ -20,14 +20,13 @@ spec:
 """
         }
     }
-}
 
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
         NEXUS_REGISTRY = 'localhost:8082'
-        DOCKER_REGISTRY = "${params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY}"
         APP_NAME = 'luxe-jewelry-store'
         SEMVER_VERSION = "1.0.${env.BUILD_NUMBER}"
+        DOCKER_REGISTRY = "${params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY}"
         DOCKER_BUILDKIT = 1
         COMPOSE_DOCKER_CLI_BUILD = 1
         SNYK_TOKEN = credentials('snyk')
@@ -52,7 +51,9 @@ spec:
     stages {
 
         stage('Clean Workspace') {
-            steps { deleteDir() }
+            steps {
+                deleteDir()
+            }
         }
 
         stage('Checkout') {
@@ -127,28 +128,32 @@ spec:
             parallel {
                 stage('Backend Image') {
                     steps {
-                        script {
-                            buildDockerImage(
-                                imageName: "${APP_NAME}-backend",
-                                dockerFile: 'backend/Dockerfile',
-                                buildContext: '.',
-                                registry: DOCKER_REGISTRY,
-                                tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
-                            )
+                        container('jenkins-agent') {
+                            script {
+                                buildDockerImage(
+                                    imageName: "${APP_NAME}-backend",
+                                    dockerFile: 'backend/Dockerfile',
+                                    buildContext: '.',
+                                    registry: DOCKER_REGISTRY,
+                                    tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
+                                )
+                            }
                         }
                     }
                 }
 
                 stage('Frontend Image') {
                     steps {
-                        script {
-                            buildDockerImage(
-                                imageName: "${APP_NAME}-frontend",
-                                dockerFile: 'frontend/Dockerfile',
-                                buildContext: '.',
-                                registry: DOCKER_REGISTRY,
-                                tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
-                            )
+                        container('jenkins-agent') {
+                            script {
+                                buildDockerImage(
+                                    imageName: "${APP_NAME}-frontend",
+                                    dockerFile: 'frontend/Dockerfile',
+                                    buildContext: '.',
+                                    registry: DOCKER_REGISTRY,
+                                    tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
+                                )
+                            }
                         }
                     }
                 }
@@ -160,19 +165,21 @@ spec:
                 stage('Push to Docker Hub') {
                     when { expression { params.PUSH_TO_DOCKERHUB } }
                     steps {
-                        script {
-                            pushToRegistry(
-                                imageName: "${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend",
-                                tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest'],
-                                credentialsId: 'docker-hub',
-                                registry: 'docker.io'
-                            )
-                            pushToRegistry(
-                                imageName: "${DOCKER_HUB_REGISTRY}/${APP_NAME}-frontend",
-                                tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest'],
-                                credentialsId: 'docker-hub',
-                                registry: 'docker.io'
-                            )
+                        container('jenkins-agent') {
+                            script {
+                                pushToRegistry(
+                                    imageName: "${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend",
+                                    tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest'],
+                                    credentialsId: 'docker-hub',
+                                    registry: 'docker.io'
+                                )
+                                pushToRegistry(
+                                    imageName: "${DOCKER_HUB_REGISTRY}/${APP_NAME}-frontend",
+                                    tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest'],
+                                    credentialsId: 'docker-hub',
+                                    registry: 'docker.io'
+                                )
+                            }
                         }
                     }
                 }
@@ -180,19 +187,21 @@ spec:
                 stage('Push to Nexus') {
                     when { expression { params.PUSH_TO_NEXUS && params.TARGET_REGISTRY == 'localhost:8082' } }
                     steps {
-                        script {
-                            pushToRegistry(
-                                imageName: "${NEXUS_REGISTRY}/${APP_NAME}-backend",
-                                tags: [SEMVER_VERSION],
-                                credentialsId: 'nexus-cred',
-                                registry: NEXUS_REGISTRY
-                            )
-                            pushToRegistry(
-                                imageName: "${NEXUS_REGISTRY}/${APP_NAME}-frontend",
-                                tags: [SEMVER_VERSION],
-                                credentialsId: 'nexus-docker',
-                                registry: NEXUS_REGISTRY
-                            )
+                        container('jenkins-agent') {
+                            script {
+                                pushToRegistry(
+                                    imageName: "${NEXUS_REGISTRY}/${APP_NAME}-backend",
+                                    tags: [SEMVER_VERSION],
+                                    credentialsId: 'nexus-cred',
+                                    registry: NEXUS_REGISTRY
+                                )
+                                pushToRegistry(
+                                    imageName: "${NEXUS_REGISTRY}/${APP_NAME}-frontend",
+                                    tags: [SEMVER_VERSION],
+                                    credentialsId: 'nexus-docker',
+                                    registry: NEXUS_REGISTRY
+                                )
+                            }
                         }
                     }
                 }
@@ -201,11 +210,13 @@ spec:
 
         stage('Security Scan') {
             steps {
-                withEnv(["SNYK_TOKEN=${SNYK_TOKEN}"]) {
-                    sh """
-                        snyk container test ${DOCKER_REGISTRY}/${APP_NAME}-backend:latest --file=backend/Dockerfile --severity-threshold=high
-                        snyk container test ${DOCKER_REGISTRY}/${APP_NAME}-frontend:latest --file=frontend/Dockerfile --severity-threshold=high
-                    """
+                container('jenkins-agent') {
+                    withEnv(["SNYK_TOKEN=${SNYK_TOKEN}"]) {
+                        sh """
+                            snyk container test ${DOCKER_REGISTRY}/${APP_NAME}-backend:latest --file=backend/Dockerfile --severity-threshold=high
+                            snyk container test ${DOCKER_REGISTRY}/${APP_NAME}-frontend:latest --file=frontend/Dockerfile --severity-threshold=high
+                        """
+                    }
                 }
             }
         }
@@ -213,26 +224,28 @@ spec:
         stage('Deploy to Kubernetes') {
             when { expression { params.DEPLOY_ENVIRONMENT != 'none' } }
             steps {
-                script {
-                    sh "kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -"
-                    dir('k8s') {
-                        sh 'kubectl apply -f pvc.yaml -n ${K8S_NAMESPACE}'
-                        if (fileExists('secrets.yaml')) { sh 'kubectl apply -f secrets.yaml -n ${K8S_NAMESPACE}' }
-                        if (fileExists('configmap.yaml')) { sh 'kubectl apply -f configmap.yaml -n ${K8S_NAMESPACE}' }
-                        sh 'kubectl apply -f backend-deployment.yaml,backend-service.yaml -n ${K8S_NAMESPACE}'
-                        sh 'kubectl apply -f frontend-deployment.yaml,frontend-service.yaml -n ${K8S_NAMESPACE}'
-                        if (fileExists('hpa.yaml')) { sh 'kubectl apply -f hpa.yaml -n ${K8S_NAMESPACE}' }
-                        if (fileExists('ingress.yaml') && params.DEPLOY_ENVIRONMENT != 'production') {
-                            sh 'kubectl apply -f ingress.yaml -n ${K8S_NAMESPACE}'
+                container('jenkins-agent') {
+                    script {
+                        sh "kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -"
+                        dir('k8s') {
+                            sh 'kubectl apply -f pvc.yaml -n ${K8S_NAMESPACE}'
+                            if (fileExists('secrets.yaml')) { sh 'kubectl apply -f secrets.yaml -n ${K8S_NAMESPACE}' }
+                            if (fileExists('configmap.yaml')) { sh 'kubectl apply -f configmap.yaml -n ${K8S_NAMESPACE}' }
+                            sh 'kubectl apply -f backend-deployment.yaml,backend-service.yaml -n ${K8S_NAMESPACE}'
+                            sh 'kubectl apply -f frontend-deployment.yaml,frontend-service.yaml -n ${K8S_NAMESPACE}'
+                            if (fileExists('hpa.yaml')) { sh 'kubectl apply -f hpa.yaml -n ${K8S_NAMESPACE}' }
+                            if (fileExists('ingress.yaml') && params.DEPLOY_ENVIRONMENT != 'production') {
+                                sh 'kubectl apply -f ingress.yaml -n ${K8S_NAMESPACE}'
+                            }
                         }
+                        sh """
+                            kubectl rollout status deployment/luxe-backend -n ${K8S_NAMESPACE} --timeout=300s
+                            kubectl rollout status deployment/luxe-frontend -n ${K8S_NAMESPACE} --timeout=300s
+                        """
+                        def frontendUrl = sh(script: "minikube service --url luxe-frontend -n ${K8S_NAMESPACE}", returnStdout: true).trim()
+                        echo "Frontend is available at: ${frontendUrl}"
+                        echo 'Deployment completed successfully'
                     }
-                    sh """
-                        kubectl rollout status deployment/luxe-backend -n ${K8S_NAMESPACE} --timeout=300s
-                        kubectl rollout status deployment/luxe-frontend -n ${K8S_NAMESPACE} --timeout=300s
-                    """
-                    def frontendUrl = sh(script: "minikube service --url luxe-frontend -n ${K8S_NAMESPACE}", returnStdout: true).trim()
-                    echo "Frontend is available at: ${frontendUrl}"
-                    echo 'Deployment completed successfully'
                 }
             }
         }
@@ -243,4 +256,4 @@ spec:
             echo "Pipeline completed."
         }
     }
-
+}
