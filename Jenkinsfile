@@ -1,14 +1,17 @@
-pipeline {
+ppipeline {
     agent {
         kubernetes {
+            label 'luxe-jenkins-agent'  // Pod label
             yaml """
 apiVersion: v1
 kind: Pod
 spec:
   containers:
+  - name: jnlp
+    image: jenkins/inbound-agent:lts
+    args: ['\${computer.jnlpmac}', '\${computer.name}']
   - name: jenkins-agent
     image: jenkins-agent:latest
-    imagePullPolicy: IfNotPresent
     command:
     - cat
     tty: true
@@ -25,6 +28,7 @@ spec:
         }
     }
 }
+
 
 
     environment {
