@@ -1,4 +1,4 @@
-ppipeline {
+pipeline {
     agent {
         kubernetes {
             label 'luxe-jenkins-agent'  // Pod label
