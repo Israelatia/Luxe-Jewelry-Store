@@ -1,7 +1,7 @@
 pipeline {
     agent {
         kubernetes {
-yaml '''
+            yaml '''
 apiVersion: v1
 kind: Pod
 spec:
@@ -11,6 +11,9 @@ spec:
     - name: jnlp
       image: jenkins/inbound-agent:latest
       args: ['$(JENKINS_SECRET)', '$(JENKINS_AGENT_NAME)']
+      env:
+        - name: JENKINS_URL
+          value: "http://jenkins:8080/"
       tty: true
     - name: backend
       image: israelatia/luxe-jewelry-store-backend:latest
@@ -21,8 +24,10 @@ spec:
       command: ['cat']
       tty: true
 '''
+            defaultContainer 'backend'
         }
     }
+    
 
   environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
