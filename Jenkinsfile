@@ -12,7 +12,7 @@ spec:
   containers:
     - name: jnlp
       image: jenkins/inbound-agent:latest
-      args: ['-url', 'http://192.168.49.1:8080', '-secret', '\$(JENKINS_SECRET)', '-workDir', '/home/jenkins']
+      args: ['-url', 'http://192.168.49.2:8080', '-secret', '\$(JENKINS_SECRET)', '-workDir', '/home/jenkins']
       tty: true
     - name: jenkins-agent
       image: israelatia/jenkins-agent:latest
