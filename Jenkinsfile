@@ -5,23 +5,26 @@ pipeline {
 apiVersion: v1
 kind: Pod
 spec:
+  imagePullSecrets:
+    - name: docker-hub-creds  # only needed if you use private images
   containers:
-  - name: jnlp
-    image: jenkins/inbound-agent:latest
-    args: ['\$(JENKINS_SECRET)', '\$(JENKINS_AGENT_NAME)']
-    tty: true
-  - name: backend
-    image: israelatia/luxe-jewelry-store-backend:latest
-    command: ['cat']
-    tty: true
-  - name: jenkins-agent
-    image: israelatia/luxe-jewelry-store-backend:latest
-    command: ['cat']
-    tty: true
+    - name: jnlp
+      image: jenkins/inbound-agent:latest
+      args: ['$(JENKINS_SECRET)', '$(JENKINS_AGENT_NAME)']
+      tty: true
+    - name: backend
+      image: israelatia/luxe-jewelry-store-backend:latest
+      command: ['cat']
+      tty: true
+    - name: jenkins-agent
+      image: israelatia/luxe-jewelry-store-backend:latest
+      command: ['cat']
+      tty: true
 """
             defaultContainer 'backend'
         }
     }
+
 
   environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
