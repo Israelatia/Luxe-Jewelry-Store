@@ -5,6 +5,7 @@ pipeline {
 apiVersion: v1
 kind: Pod
 spec:
+  serviceAccountName: jenkins-agent-sa
   imagePullSecrets:
     - name: docker-hub-creds
   containers:
@@ -13,7 +14,7 @@ spec:
       args: ['$(JENKINS_SECRET)', '$(JENKINS_AGENT_NAME)']
       env:
         - name: JENKINS_URL
-          value: "http://jenkins:8080/"
+          value: "http://jenkins.jenkins.svc.cluster.local:8080/"
       tty: true
     - name: backend
       image: israelatia/luxe-jewelry-store-backend:latest
