@@ -1,6 +1,7 @@
 pipeline {
     agent {
     kubernetes {
+        jenkinsUrl 'http://jenkins.jenkins.svc.cluster.local:8080'
         label 'luxe-jewelry-agent'
         serviceAccount 'default'
         containerTemplates([
