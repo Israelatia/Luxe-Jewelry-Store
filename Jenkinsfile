@@ -1,12 +1,12 @@
 pipeline {
     agent {
         kubernetes {
-            yaml """
+yaml '''
 apiVersion: v1
 kind: Pod
 spec:
   imagePullSecrets:
-    - name: docker-hub-creds  # only needed if you use private images
+    - name: docker-hub-creds
   containers:
     - name: jnlp
       image: jenkins/inbound-agent:latest
@@ -20,11 +20,9 @@ spec:
       image: israelatia/luxe-jewelry-store-backend:latest
       command: ['cat']
       tty: true
-"""
-            defaultContainer 'backend'
+'''
         }
     }
-
 
   environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
