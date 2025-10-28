@@ -1,11 +1,10 @@
-pipeline {
-    agent {
-        kubernetes {
-            yaml '''
+agent {
+    kubernetes {
+        yaml '''
 apiVersion: v1
 kind: Pod
 spec:
-  serviceAccountName: jenkins-agent-sa
+  serviceAccountName: default
   imagePullSecrets:
     - name: docker-hub-creds
   containers:
@@ -25,9 +24,10 @@ spec:
       command: ['cat']
       tty: true
 '''
-            defaultContainer 'backend'
-        }
+        defaultContainer 'backend'
     }
+}
+
     
 
   environment {
