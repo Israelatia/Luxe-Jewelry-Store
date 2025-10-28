@@ -12,9 +12,9 @@ pipeline {
             ),
             containerTemplate(
                 name: 'jenkins-agent',
-                image: 'israelatia/luxe-jewelry-store-backend:latest',
-                command: '/bin/sh -c',
-                args: 'sleep 99d',
+                image: 'jenkins-agent',
+                command: 'sleep',
+                args: 'infinity',
                 ttyEnabled: true
             )
         ])
