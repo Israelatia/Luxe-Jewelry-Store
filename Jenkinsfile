@@ -1,3 +1,4 @@
+pipeline{
 agent {
     kubernetes {
         yaml '''
@@ -265,6 +266,6 @@ spec:
             echo "Pipeline completed."
         }
     }
-
+}
 
     
