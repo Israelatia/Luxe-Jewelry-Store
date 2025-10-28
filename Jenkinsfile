@@ -20,7 +20,7 @@ spec:
 """
         }
     }  
-
+    
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
         NEXUS_REGISTRY = 'localhost:8082'
