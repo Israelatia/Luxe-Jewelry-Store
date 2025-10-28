@@ -14,7 +14,6 @@ spec:
     image: israelatia/luxe-jewelry-store-backend:latest
     command: ['/bin/sh', '-c']
     args: ['cat']
-    tty: true
 """
         idleMinutes 60 // optional: increase agent idle timeout
     }
