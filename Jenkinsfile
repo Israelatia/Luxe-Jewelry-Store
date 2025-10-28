@@ -1,29 +1,28 @@
 pipeline {
     agent {
-    kubernetes {
-        label 'luxe-jewelry-agent'
-        serviceAccount 'default'
-        containerTemplates([
-            containerTemplate(
-                name: 'jnlp',
-                image: 'jenkins/inbound-agent:latest',
-                args: '${computer.jnlpmac} ${computer.name}',
-                ttyEnabled: true,
-                envVars: [
-                    envVar(key: 'JENKINS_URL', value: 'http://jenkins.jenkins.svc.cluster.local:8080')
-                ]
-            ),
-            containerTemplate(
-                name: 'jenkins-agent',
-                image: 'jenkins-agent',
-                command: 'sleep',
-                args: 'infinity',
-                ttyEnabled: true
-            )
-        ])
-        idleMinutes 60
+        kubernetes {
+            label 'luxe-jewelry-agent'
+            defaultContainer 'jnlp'
+            yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: jenkins
+spec:
+  containers:
+    - name: jnlp
+      image: jenkins/inbound-agent:latest
+      args: ['-url', 'http://192.168.49.1:8080', '-secret', '\$(JENKINS_SECRET)', '-workDir', '/home/jenkins']
+      tty: true
+    - name: jenkins-agent
+      image: israelatia/jenkins-agent:latest
+      command: ['cat']
+      tty: true
+"""
+        }
     }
-}
+
+
 
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
