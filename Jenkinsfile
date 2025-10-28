@@ -1,24 +1,27 @@
 pipeline {
     agent {
     kubernetes {
-        yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-  - name: jnlp
-    image: jenkins/inbound-agent:latest
-    args: ['\$(JENKINS_SECRET)', '\$(JENKINS_AGENT_NAME)']
-    tty: true
-    env:
-    - name: JENKINS_URL
-      value: http://10.104.103.190:8080
-  - name: jenkins-agent
-    image: israelatia/luxe-jewelry-store-backend:latest
-    command: ['/bin/sh', '-c']
-    args: ['sleep infinity']
-"""
-        idleMinutes 60 // optional: increase agent idle timeout
+        cloud 'kubernetes'
+        serviceAccount 'default'
+        podTemplate(
+            label: 'luxe-jewelry-agent',
+            containers: [
+                containerTemplate(
+                    name: 'jnlp',
+                    image: 'jenkins/inbound-agent:latest',
+                    args: '${computer.jnlpmac} ${computer.name}',
+                    ttyEnabled: true
+                ),
+                containerTemplate(
+                    name: 'jenkins-agent',
+                    image: 'israelatia/luxe-jewelry-store-backend:latest',
+                    command: '/bin/sh -c',
+                    args: 'sleep 99d',
+                    ttyEnabled: true
+                )
+            ],
+            idleMinutes: 60
+        )
     }
 }
 
