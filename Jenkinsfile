@@ -1,7 +1,6 @@
 pipeline {
     agent {
     kubernetes {
-        jenkinsUrl 'http://jenkins.jenkins.svc.cluster.local:8080'
         label 'luxe-jewelry-agent'
         serviceAccount 'default'
         containerTemplates([
@@ -9,7 +8,10 @@ pipeline {
                 name: 'jnlp',
                 image: 'jenkins/inbound-agent:latest',
                 args: '${computer.jnlpmac} ${computer.name}',
-                ttyEnabled: true
+                ttyEnabled: true,
+                envVars: [
+                    envVar(key: 'JENKINS_URL', value: 'http://jenkins.jenkins.svc.cluster.local:8080')
+                ]
             ),
             containerTemplate(
                 name: 'jenkins-agent',
