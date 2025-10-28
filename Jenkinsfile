@@ -1,37 +1,27 @@
-pipeline{
-agent {
-    kubernetes {
-        yaml '''
+pipeline {
+    agent {
+        kubernetes {
+            yaml """
 apiVersion: v1
 kind: Pod
+metadata:
+  labels:
+    app: luxe-jewelry-store
 spec:
-  serviceAccountName: default
-  imagePullSecrets:
-    - name: docker-hub-creds
   containers:
-    - name: jnlp
-      image: jenkins/inbound-agent:latest
-      args: ['$(JENKINS_SECRET)', '$(JENKINS_AGENT_NAME)']
-      env:
-        - name: JENKINS_URL
-          value: "http://jenkins.jenkins.svc.cluster.local:8080/"
-      tty: true
-    - name: backend
-      image: israelatia/luxe-jewelry-store-backend:latest
-      command: ['cat']
-      tty: true
-    - name: jenkins-agent
-      image: israelatia/luxe-jewelry-store-backend:latest
-      command: ['cat']
-      tty: true
-'''
-        defaultContainer 'backend'
-    }
-}
+  - name: backend
+    image: israelatia/luxe-jewelry-store-backend:latest
+    command: ['cat']
+    tty: true
+  - name: jnlp
+    image: jenkins/inbound-agent:latest
+  imagePullSecrets:
+  - name: docker-hub-creds
+"""
+        }
+    }  
 
-    
-
-  environment {
+    environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
         NEXUS_REGISTRY = 'localhost:8082'
         APP_NAME = 'luxe-jewelry-store'
@@ -138,7 +128,7 @@ spec:
             parallel {
                 stage('Backend Image') {
                     steps {
-                        container('jenkins-agent') {
+                        container('backend') {
                             script {
                                 buildDockerImage(
                                     imageName: "${APP_NAME}-backend",
@@ -154,7 +144,7 @@ spec:
 
                 stage('Frontend Image') {
                     steps {
-                        container('jenkins-agent') {
+                        container('backend') {
                             script {
                                 buildDockerImage(
                                     imageName: "${APP_NAME}-frontend",
@@ -175,7 +165,7 @@ spec:
                 stage('Push to Docker Hub') {
                     when { expression { params.PUSH_TO_DOCKERHUB } }
                     steps {
-                        container('jenkins-agent') {
+                        container('backend') {
                             script {
                                 pushToRegistry(
                                     imageName: "${DOCKER_HUB_REGISTRY}/${APP_NAME}-backend",
@@ -197,7 +187,7 @@ spec:
                 stage('Push to Nexus') {
                     when { expression { params.PUSH_TO_NEXUS && params.TARGET_REGISTRY == 'localhost:8082' } }
                     steps {
-                        container('jenkins-agent') {
+                        container('backend') {
                             script {
                                 pushToRegistry(
                                     imageName: "${NEXUS_REGISTRY}/${APP_NAME}-backend",
@@ -220,7 +210,7 @@ spec:
 
         stage('Security Scan') {
             steps {
-                container('jenkins-agent') {
+                container('backend') {
                     withEnv(["SNYK_TOKEN=${SNYK_TOKEN}"]) {
                         sh """
                             snyk container test ${DOCKER_REGISTRY}/${APP_NAME}-backend:latest --file=backend/Dockerfile --severity-threshold=high
@@ -234,7 +224,7 @@ spec:
         stage('Deploy to Kubernetes') {
             when { expression { params.DEPLOY_ENVIRONMENT != 'none' } }
             steps {
-                container('jenkins-agent') {
+                container('backend') {
                     script {
                         sh "kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -"
                         dir('k8s') {
@@ -267,5 +257,3 @@ spec:
         }
     }
 }
-
-    
