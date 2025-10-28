@@ -9,12 +9,22 @@ spec:
     image: jenkins/inbound-agent:latest
     args: ['\$(JENKINS_SECRET)', '\$(JENKINS_AGENT_NAME)']
     tty: true
+  - name: backend
+    image: israelatia/luxe-jewelry-store-backend:latest
+    command:
+    - cat
+    tty: true
   - name: jenkins-agent
     image: israelatia/luxe-jewelry-store-backend:latest
+    command:
+    - cat
+    tty: true
 """
-        idleMinutes 60 // optional: increase agent idle timeout
+        defaultContainer 'backend'
+        idleMinutes 60
     }
 }
+
 
     environment {
         DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
