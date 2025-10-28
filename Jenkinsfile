@@ -10,10 +10,13 @@ spec:
     image: jenkins/inbound-agent:latest
     args: ['\$(JENKINS_SECRET)', '\$(JENKINS_AGENT_NAME)']
     tty: true
+    env:
+    - name: JENKINS_URL
+      value: http://10.104.103.190:8080
   - name: jenkins-agent
     image: israelatia/luxe-jewelry-store-backend:latest
     command: ['/bin/sh', '-c']
-    args: ['cat']
+    args: ['sleep infinity']
 """
         idleMinutes 60 // optional: increase agent idle timeout
     }
