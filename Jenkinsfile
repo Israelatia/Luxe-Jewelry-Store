@@ -1,5 +1,5 @@
-agent {
-    kubernetes {
+pipeline{ 
+     kubernetes {
         yaml """
 apiVersion: v1
 kind: Pod
