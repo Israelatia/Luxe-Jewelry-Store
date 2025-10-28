@@ -1,27 +1,24 @@
 pipeline {
     agent {
     kubernetes {
-        cloud 'kubernetes'
+        label 'luxe-jewelry-agent'
         serviceAccount 'default'
-        podTemplate(
-            label: 'luxe-jewelry-agent',
-            containers: [
-                containerTemplate(
-                    name: 'jnlp',
-                    image: 'jenkins/inbound-agent:latest',
-                    args: '${computer.jnlpmac} ${computer.name}',
-                    ttyEnabled: true
-                ),
-                containerTemplate(
-                    name: 'jenkins-agent',
-                    image: 'israelatia/luxe-jewelry-store-backend:latest',
-                    command: '/bin/sh -c',
-                    args: 'sleep 99d',
-                    ttyEnabled: true
-                )
-            ],
-            idleMinutes: 60
-        )
+        containerTemplates([
+            containerTemplate(
+                name: 'jnlp',
+                image: 'jenkins/inbound-agent:latest',
+                args: '${computer.jnlpmac} ${computer.name}',
+                ttyEnabled: true
+            ),
+            containerTemplate(
+                name: 'jenkins-agent',
+                image: 'israelatia/luxe-jewelry-store-backend:latest',
+                command: '/bin/sh -c',
+                args: 'sleep 99d',
+                ttyEnabled: true
+            )
+        ])
+        idleMinutes 60
     }
 }
 
