@@ -1,26 +1,28 @@
 pipeline {
     agent {
-        kubernetes {
-            label 'luxe-jewelry-agent'
-            defaultContainer 'jnlp'
-            yaml """
+    kubernetes {
+        label 'luxe-jewelry-agent'
+        defaultContainer 'jnlp'
+        yaml """
 apiVersion: v1
 kind: Pod
 metadata:
   namespace: jenkins
 spec:
+  serviceAccountName: jenkins-admin      # <--- add this line
   containers:
     - name: jnlp
       image: jenkins/inbound-agent:latest
-      args: ['-url', 'http://192.168.49.2:8080', '-secret', '\$(JENKINS_SECRET)', '-workDir', '/home/jenkins']
+      args: ['-url', 'http://jenkins.jenkins.svc.cluster.local:8080', '-secret', '\$(JENKINS_SECRET)', '-workDir', '/home/jenkins']
       tty: true
     - name: jenkins-agent
       image: israelatia/jenkins-agent:latest
       command: ['cat']
       tty: true
 """
-        }
     }
+}
+
 
 
 
