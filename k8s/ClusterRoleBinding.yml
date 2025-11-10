@@ -1,0 +1,4 @@
+subjects:
+- kind: ServiceAccount
+  name: jenkins
+  namespace: NEW_NAMESPACE   # <- change this too
