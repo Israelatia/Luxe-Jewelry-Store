@@ -260,4 +260,4 @@ spec:
             echo "Pipeline completed."
         }
     }
-}
+
