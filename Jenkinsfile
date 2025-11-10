@@ -1,26 +1,28 @@
-agent {
-    kubernetes {
-        label 'luxe-jewelry-agent'
-        defaultContainer 'jenkins-agent'
-        yaml """
+pipeline {
+    agent {
+        kubernetes {
+            label 'jenkins-agent-pod'
+            defaultContainer 'jnlp'
+            yaml """
 apiVersion: v1
 kind: Pod
-metadata:
-  namespace: jenkins
 spec:
-  serviceAccountName: jenkins-admin
   containers:
-    - name: jnlp
-      image: jenkins/inbound-agent:latest
-      tty: true
-    - name: jenkins-agent
-      image: israelatia/jenkins-agent:latest
-      command: ['cat']
-      tty: true
+  - name: maven
+    image: maven:3.9.3-openjdk-20
+    command:
+    - cat
+    tty: true
+  - name: docker
+    image: docker:24.0.5-dind
+    securityContext:
+      privileged: true
+    command:
+    - cat
+    tty: true
 """
+        }
     }
-}
-
 
 
 
@@ -260,4 +262,5 @@ spec:
             echo "Pipeline completed."
         }
     }
+}
 
