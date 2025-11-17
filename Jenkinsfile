@@ -1,30 +1,16 @@
 pipeline {
-    agent {
-        kubernetes {
-            label 'jenkins-agent-pod'
-            defaultContainer 'jnlp'
-            yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-  - name: maven
-    image: maven:3.9.3-openjdk-20
-    command:
-    - cat
-    tty: true
-  - name: docker
-    image: docker:24.0.5-dind
-    securityContext:
-      privileged: true
-    command:
-    - cat
-    tty: true
-"""
+    agent { label params.AGENT_TYPE } // AGENT_TYPE: ec2 or kubernetes
+    parameters {
+        choice(name: 'AGENT_TYPE', choices: ['kubernetes-pods','ec2'], description: 'Select agent type')
+    }
+    stages {
+        stage('Build') {
+            steps {
+                sh 'echo "Running on EC2 agent"'
+            }
         }
     }
-
-
+}
 
 
     environment {

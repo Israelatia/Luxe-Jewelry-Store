@@ -1,7 +1,7 @@
 {
-  "ImageId": "ami-0123456789abcdef0",
+  "ImageId": "ami-0d378e01c13a59d39",
   "InstanceType": "t3.medium",
-  "IamInstanceProfile": {"Name": "ec2-agent-instance-profile"},
-  "SecurityGroupIds": ["sg-0123456789abcdef0"],
-  "KeyName": "jenkins-keypair"
+  "IamInstanceProfile": {"Name": "jenkins-aws-agent"},
+  "SecurityGroupIds": ["sg-0906f5393be845cf2"],
+  "KeyName": "jenkins-agent-key"
 }
