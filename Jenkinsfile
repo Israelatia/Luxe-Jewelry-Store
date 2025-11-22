@@ -14,8 +14,7 @@ pipeline {
         choice(
             name: 'AGENT_TYPE',
             choices: ['kubernetes', 'ec2'],
-            description: 'Select agent type',
-            defaultValue: 'kubernetes'
+            description: 'Select agent type'
         )
     }
 
