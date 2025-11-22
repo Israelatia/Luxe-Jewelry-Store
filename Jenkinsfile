@@ -5,7 +5,7 @@ pipeline {
         AWS_ACCOUNT_ID = '992398098051'
         AWS_REGION = 'us-east-1'
         ECR_REPOSITORY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        APP_NAME = 'luxe-jewelry-store'
+        APP_NAME = 'aws-project'
         K8S_NAMESPACE = 'israel-app'
     }
     
