@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-agent-config
+  namespace: israel-jenkins
+data:
+  jenkins.yaml: |
+    jenkins:
+      agentProtocols:
+      - "JNLP4-connect"
+      - "Ping"
+      authorizationStrategy:
+        loggedInUsersCanDoAnything:
+          allowAnonymousRead: false
+      remotingSecurity:
+        enabled: true
+      securityRealm:
+        local:
+          allowsSignup: false
+          users:
+          - id: "admin"
+            password: "${JENKINS_ADMIN_PASSWORD}"
+      clouds:
+      - kubernetes:
+          name: "kubernetes"
+          serverUrl: "https://kubernetes.default"
+          namespace: "israel-jenkins"
+          jenkinsUrl: "http://jenkins:8080"
+          containerCap: 5
+          podRetention: never
+          maxRequestsPerHostStr: "32"
+          connectTimeout: 15
+          readTimeout: 15
+          containerCapStr: "10"
+          templates:
+          - name: "jnlp"
+            label: "jenkins-jnlp"
+            nodeUsageMode: NORMAL
+            containers:
+            - name: "jnlp"
+              image: "jenkins/inbound-agent:4.11.2-4"
+              args: '${computer.jnlpmac} ${computer.name}'
+              resourceRequestCpu: "500m"
+              resourceRequestMemory: "512Mi"
+              resourceLimitCpu: "1000m"
+              resourceLimitMemory: "1Gi"
+              workingDir: "/home/jenkins/agent"
+          - name: "docker"
+            label: "jenkins-docker"
+            nodeUsageMode: NORMAL
+            containers:
+            - name: "jnlp"
+              image: "jenkins/inbound-agent:4.11.2-4"
+              args: '${computer.jnlpmac} ${computer.name}'
+              resourceRequestCpu: "500m"
+              resourceRequestMemory: "512Mi"
+              resourceLimitCpu: "1000m"
+              resourceLimitMemory: "1Gi"
+              workingDir: "/home/jenkins/agent"
+            - name: "docker"
+              image: "docker:20.10.16-dind"
+              securityContext:
+                privileged: true
+              resources:
+                requests:
+                  cpu: "500m"
+                  memory: "1Gi"
+                limits:
+                  cpu: "1000m"
+                  memory: "2Gi"
+              volumeMounts:
+                - name: docker-graph-storage
+                  mountPath: /var/lib/docker
+            volumes:
+            - name: docker-graph-storage
+              emptyDir: {}

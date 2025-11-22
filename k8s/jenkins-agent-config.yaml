@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-agent-config
+  namespace: israel-jenkins
+data:
+  jenkins.yaml: |
+    jenkins:
+      mode: EXCLUSIVE
+      numExecutors: 0
+      labelString: "jenkins-agent"
+      cloud:
+        kubernetes:
+          serverUrl: https://kubernetes.default
+          namespace: "israel-jenkins"
+          jenkinsUrl: "http://jenkins.israel-jenkins.svc.cluster.local:8080"
+          containerCap: 10
+          connectTimeout: 0
+          readTimeout: 0
+          maxRequestsPerHost: 32
+          podRetention: never
+          podTemplates:
+          - name: "jnlp"
+            namespace: "israel-jenkins"
+            label: "jenkins-agent"
+            nodeSelector: "jenkins=agent"
+            containers:
+            - name: "jnlp"
+              image: "jenkins/inbound-agent:latest"
+              args: '${computer.jnlpmac} ${computer.name}'
+              resourceRequestCpu: "200m"
+              resourceLimitCpu: "500m"
+              resourceRequestMemory: "256Mi"
+              resourceLimitMemory: "512Mi"
+              workingDir: "/home/jenkins/agent"
+              alwaysPullImage: true
+            volumes:
+            - hostPathVolume:
+                hostPath: "/var/run/docker.sock"
+                mountPath: "/var/run/docker.sock"
+            - hostPathVolume:
+                hostPath: "/usr/bin/docker"
+                mountPath: "/usr/bin/docker"
