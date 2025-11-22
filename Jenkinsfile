@@ -41,9 +41,6 @@ pipeline {
         }
         
         stage('Deploy to EKS') {
-            when {
-                branch 'main'
-            }
             steps {
                 withKubeConfig([credentialsId: 'k8s-credentials']) {
                     bat "kubectl create namespace %K8S_NAMESPACE% --dry-run=client -o yaml | kubectl apply -f -"
