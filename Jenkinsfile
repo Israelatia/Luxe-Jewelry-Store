@@ -19,10 +19,10 @@ pipeline {
         stage('Build & Push Backend') {
             steps {
                 dir('backend') {
-                    bat "docker build -t %ECR_REPOSITORY%/%APP_NAME%-backend:latest ."
+                    bat "docker build -t %ECR_REPOSITORY%/aws-project:latest ."
                     withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
                         bat "aws ecr get-login-password --region %AWS_REGION% | docker login --username AWS --password-stdin %ECR_REPOSITORY%"
-                        bat "docker push %ECR_REPOSITORY%/%APP_NAME%-backend:latest"
+                        bat "docker push %ECR_REPOSITORY%/aws-project:latest"
                     }
                 }
             }
@@ -31,10 +31,10 @@ pipeline {
         stage('Build & Push Frontend') {
             steps {
                 dir('frontend') {
-                    bat "docker build -t %ECR_REPOSITORY%/%APP_NAME%-frontend:latest ."
+                    bat "docker build -t %ECR_REPOSITORY%/aws-project:latest ."
                     withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
                         bat "aws ecr get-login-password --region %AWS_REGION% | docker login --username AWS --password-stdin %ECR_REPOSITORY%"
-                        bat "docker push %ECR_REPOSITORY%/%APP_NAME%-frontend:latest"
+                        bat "docker push %ECR_REPOSITORY%/aws-project:latest"
                     }
                 }
             }
