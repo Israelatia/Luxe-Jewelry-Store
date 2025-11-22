@@ -3,8 +3,22 @@
   "Statement": [
     {
       "Effect": "Allow",
-      "Principal": { "Service": "ec2.amazonaws.com" },
+      "Principal": {
+        "Service": [
+          "ec2.amazonaws.com",
+          "eks.amazonaws.com",
+          "ecr.amazonaws.com"
+        ]
+      },
       "Action": "sts:AssumeRole"
+    },
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::992398098051:root"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {}
     }
   ]
 }

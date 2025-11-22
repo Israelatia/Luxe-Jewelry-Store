@@ -19,10 +19,10 @@ spec:
         app: luxe-backend
     spec:
       imagePullSecrets:
-      - name: docker-hub-creds
+      - name: ecr-credentials
       containers:
       - name: luxe-backend
-        image: israelatia/luxe-jewelry-store-backend:latest
+        image: 992398098051.dkr.ecr.us-east-1.amazonaws.com/student-eks-cluster:backend-latest
         ports:
         - containerPort: 8000
         env:

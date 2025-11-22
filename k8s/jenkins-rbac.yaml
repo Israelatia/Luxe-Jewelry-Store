@@ -2,12 +2,12 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: jenkins
-  namespace: jenkins
+  namespace: israel-jenkins
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: jenkins-admin
+  name: israel-jenkins-admin
 rules:
 - apiGroups: [""]
   resources: ["pods", "pods/exec", "pods/log", "pods/portforward"]
@@ -30,25 +30,28 @@ rules:
 - apiGroups: ["extensions", "apps"]
   resources: ["ingresses"]
   verbs: ["get", "list", "watch", "create", "delete", "patch", "update"]
+- apiGroups: ["eks.amazonaws.com"]
+  resources: ["*"]
+  verbs: ["*"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: jenkins-admin-binding
+  name: israel-jenkins-admin-binding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: jenkins-admin
+  name: israel-jenkins-admin
 subjects:
 - kind: ServiceAccount
   name: jenkins
-  namespace: jenkins
+  namespace: israel-jenkins
 ---
 apiVersion: v1
 kind: Secret
 metadata:
   name: jenkins-token
-  namespace: jenkins
+  namespace: israel-jenkins
   annotations:
     kubernetes.io/service-account.name: jenkins
 type: kubernetes.io/service-account-token

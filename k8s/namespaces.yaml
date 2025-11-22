@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: israel-jenkins
+  labels:
+    name: israel-jenkins
+    env: dev
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: israel-app
+  labels:
+    name: israel-app
+    env: dev
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: israel-argo
+  labels:
+    name: israel-argo
+    env: dev
+---
+# NetworkPolicy to allow traffic between namespaces
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-namespace-traffic
+  namespace: israel-jenkins
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: israel-jenkins
+    - namespaceSelector:
+        matchLabels:
+          name: israel-app
+    - namespaceSelector:
+        matchLabels:
+          name: israel-argo
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: israel-jenkins
+    - namespaceSelector:
+        matchLabels:
+          name: israel-app
+    - namespaceSelector:
+        matchLabels:
+          name: israel-argo

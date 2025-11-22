@@ -1,29 +1,80 @@
 pipeline {
-    agent { label params.AGENT_TYPE } // AGENT_TYPE: ec2 or kubernetes
-    parameters {
-        choice(name: 'AGENT_TYPE', choices: ['kubernetes-pods','ec2'], description: 'Select agent type')
+    agent any
+    
+    environment {
+        // AWS Configuration
+        AWS_ACCOUNT_ID = '992398098051'
+        AWS_REGION = 'us-east-1'
+        ECR_REPOSITORY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        APP_NAME = 'luxe-jewelry-store'
+        K8S_NAMESPACE = 'demo-app'
     }
+    
+    parameters {
+        choice(
+            name: 'AGENT_TYPE',
+            choices: ['kubernetes', 'ec2'],
+            description: 'Select agent type',
+            defaultValue: 'kubernetes'
+        )
+    }
+    
     stages {
-        stage('Build') {
+        stage('Checkout Code') {
+            steps { 
+                checkout scm 
+            }
+        }
+        
+        stage('Build & Push Backend') {
             steps {
-                sh 'echo "Running on EC2 agent"'
+                dir('backend') {
+                    sh "docker build -t ${ECR_REPOSITORY}/${APP_NAME}-backend:latest ."
+                    withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
+                        sh "aws ecr get-login-password | docker login --username AWS --password-stdin ${ECR_REPOSITORY}"
+                        sh "docker push ${ECR_REPOSITORY}/${APP_NAME}-backend:latest"
+                    }
+                }
+            }
+        }
+        
+        stage('Build & Push Frontend') {
+            steps {
+                dir('frontend') {
+                    sh "docker build -t ${ECR_REPOSITORY}/${APP_NAME}-frontend:latest ."
+                    withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
+                        sh "aws ecr get-login-password | docker login --username AWS --password-stdin ${ECR_REPOSITORY}"
+                        sh "docker push ${ECR_REPOSITORY}/${APP_NAME}-frontend:latest"
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy to EKS') {
+            when {
+                branch 'main'
+            }
+            steps {
+                withKubeConfig([credentialsId: 'k8s-credentials']) {
+                    sh "kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -"
+                    sh "kubectl apply -f k8s/ -n ${K8S_NAMESPACE}"
+                    sh "kubectl get pods -n ${K8S_NAMESPACE}"
+                }
             }
         }
     }
-}
-
-
-    environment {
-        DOCKER_HUB_REGISTRY = 'docker.io/israelatia'
-        NEXUS_REGISTRY = 'localhost:8082'
-        APP_NAME = 'luxe-jewelry-store'
-        SEMVER_VERSION = "1.0.${env.BUILD_NUMBER}"
-        DOCKER_REGISTRY = "${params.TARGET_REGISTRY == 'docker.io' ? DOCKER_HUB_REGISTRY : NEXUS_REGISTRY}"
-        DOCKER_BUILDKIT = 1
-        COMPOSE_DOCKER_CLI_BUILD = 1
-        SNYK_TOKEN = credentials('snyk')
-        KUBECONFIG = "${env.WORKSPACE}/.kube/config"
-        K8S_NAMESPACE = 'demo-app'
+    
+    
+    post {
+        always {
+            echo 'Pipeline completed!'
+        }
+        success {
+            echo '✅ Build and deployment successful! ✅'
+        }
+        failure {
+            echo '❌ Build or deployment failed! ❌'
+        }
     }
 
     options {
@@ -34,10 +85,11 @@ pipeline {
     }
 
     parameters {
-        choice(name: 'TARGET_REGISTRY', choices: ['docker.io', 'localhost:8082'], description: 'Target Docker registry')
+        choice(name: 'TARGET_REGISTRY', choices: ['ecr', 'docker.io', 'localhost:8082'], description: 'Target Docker registry')
         choice(name: 'DEPLOY_ENVIRONMENT', choices: ['development', 'staging', 'production', 'none'], description: 'Target environment for deployment')
         booleanParam(name: 'PUSH_TO_NEXUS', defaultValue: true, description: 'Push images to Nexus registry')
-        booleanParam(name: 'PUSH_TO_DOCKERHUB', defaultValue: true, description: 'Push images to Docker Hub')
+        booleanParam(name: 'PUSH_TO_DOCKERHUB', defaultValue: false, description: 'Push images to Docker Hub')
+        booleanParam(name: 'PUSH_TO_ECR', defaultValue: true, description: 'Push images to AWS ECR')
     }
 
     stages {
@@ -122,11 +174,15 @@ pipeline {
                     steps {
                         container('jenkins-agent') {
                             script {
+                                def imageName = params.TARGET_REGISTRY == 'ecr' ? 
+                                    "${ECR_REPOSITORY}/${ECR_IMAGE_NAME}-backend" : 
+                                    "${DOCKER_REGISTRY}/${APP_NAME}-backend"
+                                
                                 buildDockerImage(
-                                    imageName: "${APP_NAME}-backend",
+                                    imageName: imageName,
                                     dockerFile: 'backend/Dockerfile',
                                     buildContext: '.',
-                                    registry: DOCKER_REGISTRY,
+                                    registry: params.TARGET_REGISTRY == 'ecr' ? ECR_REPOSITORY : DOCKER_REGISTRY,
                                     tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
                                 )
                             }
@@ -138,11 +194,15 @@ pipeline {
                     steps {
                         container('jenkins-agent') {
                             script {
+                                def imageName = params.TARGET_REGISTRY == 'ecr' ? 
+                                    "${ECR_REPOSITORY}/${ECR_IMAGE_NAME}-frontend" : 
+                                    "${DOCKER_REGISTRY}/${APP_NAME}-frontend"
+                                
                                 buildDockerImage(
-                                    imageName: "${APP_NAME}-frontend",
+                                    imageName: imageName,
                                     dockerFile: 'frontend/Dockerfile',
                                     buildContext: '.',
-                                    registry: DOCKER_REGISTRY,
+                                    registry: params.TARGET_REGISTRY == 'ecr' ? ECR_REPOSITORY : DOCKER_REGISTRY,
                                     tags: [SEMVER_VERSION, IMAGE_TAG_COMMIT, 'latest']
                                 )
                             }
@@ -155,7 +215,12 @@ pipeline {
         stage('Push Images') {
             parallel {
                 stage('Push to Docker Hub') {
-                    when { expression { params.PUSH_TO_DOCKERHUB } }
+                    when { 
+                        allOf {
+                            expression { params.PUSH_TO_DOCKERHUB }
+                            expression { params.TARGET_REGISTRY == 'docker.io' }
+                        }
+                    }
                     steps {
                         container('jenkins-agent') {
                             script {
@@ -171,6 +236,35 @@ pipeline {
                                     credentialsId: 'docker-hub',
                                     registry: 'docker.io'
                                 )
+                            }
+                        }
+                    }
+                }
+                
+                stage('Push to ECR') {
+                    when { 
+                        allOf {
+                            expression { params.PUSH_TO_ECR }
+                            expression { params.TARGET_REGISTRY == 'ecr' }
+                        }
+                    }
+                    steps {
+                        container('jenkins-agent') {
+                            script {
+                                // Login to ECR
+                                withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
+                                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPOSITORY}"
+                                    
+                                    // Push backend image
+                                    def backendImage = "${ECR_REPOSITORY}/${ECR_IMAGE_NAME}-backend:${SEMVER_VERSION}"
+                                    sh "docker tag ${ECR_REPOSITORY}/${ECR_IMAGE_NAME}-backend:${SEMVER_VERSION} ${backendImage}"
+                                    sh "docker push ${backendImage}"
+                                    
+                                    // Push frontend image
+                                    def frontendImage = "${ECR_REPOSITORY}/${ECR_IMAGE_NAME}-frontend:${SEMVER_VERSION}"
+                                    sh "docker tag ${ECR_REPOSITORY}/${ECR_IMAGE_NAME}-frontend:${SEMVER_VERSION} ${frontendImage}"
+                                    sh "docker push ${frontendImage}"
+                                }
                             }
                         }
                     }
@@ -245,6 +339,32 @@ pipeline {
 
     post {
         always {
+            script {
+                // Send SNS notification
+                withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
+                    def status = currentBuild.currentResult
+                    def buildUrl = env.BUILD_URL
+                    def projectName = env.JOB_NAME
+                    def buildNumber = env.BUILD_NUMBER
+                    
+                    def message = """
+Jenkins Build Notification
+Project: ${projectName}
+Build Number: ${buildNumber}
+Status: ${status}
+Build URL: ${buildUrl}
+Timestamp: ${new Date().format('yyyy-MM-dd HH:mm:ss')}
+"""
+                    
+                    sh """
+                        aws sns publish \
+                            --topic-arn arn:aws:sns:${AWS_REGION}:${AWS_ACCOUNT_ID}:jenkins-build-notifications \
+                            --subject "Jenkins Build ${status}: ${projectName} #${buildNumber}" \
+                            --message "${message}" \
+                            --region ${AWS_REGION} || echo "SNS notification failed"
+                    """
+                }
+            }
             echo "Pipeline completed."
         }
     }
