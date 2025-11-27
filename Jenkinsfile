@@ -1,14 +1,5 @@
 pipeline {
-    agent any
-    
-    parameters {
-        choice(
-            name: 'AGENT_TYPE',
-            choices: ['any', 'kubernetes-pods'],
-            description: 'Choose agent type: Any available agent or Kubernetes pods'
-        )
-    }
-    
+    agent any    
     environment {
         AWS_ACCOUNT_ID = '992398098051'
         AWS_REGION = 'us-east-1'
