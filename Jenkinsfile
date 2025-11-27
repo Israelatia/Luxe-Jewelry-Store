@@ -1,5 +1,15 @@
 pipeline {
-    agent any
+    agent {
+        label params.AGENT_TYPE
+    }
+    
+    parameters {
+        choice(
+            name: 'AGENT_TYPE',
+            choices: ['ec2-agents', 'kubernetes-pods'],
+            description: 'Choose agent type: EC2 Auto Scaling Group or Kubernetes pods'
+        )
+    }
     
     environment {
         AWS_ACCOUNT_ID = '992398098051'
