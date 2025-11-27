@@ -1,13 +1,11 @@
 pipeline {
-    agent {
-        label params.AGENT_TYPE
-    }
+    agent any
     
     parameters {
         choice(
             name: 'AGENT_TYPE',
-            choices: ['ec2-agents', 'kubernetes-pods'],
-            description: 'Choose agent type: EC2 Auto Scaling Group or Kubernetes pods'
+            choices: ['any', 'kubernetes-pods'],
+            description: 'Choose agent type: Any available agent or Kubernetes pods'
         )
     }
     
@@ -64,7 +62,7 @@ pipeline {
     post {
         always {
             script {
-                withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
+                withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
                     def status = currentBuild.currentResult
                     def buildUrl = env.BUILD_URL
                     def projectName = env.JOB_NAME
@@ -72,7 +70,7 @@ pipeline {
                     
                     def message = "Jenkins Build ${status}: ${projectName} #${buildNumber} - ${buildUrl}"
                     
-                    bat "aws sns publish --topic-arn arn:aws:sns:%AWS_REGION%:%AWS_ACCOUNT_ID%:jenkins-build-notifications --subject \"Jenkins Build ${status}\" --message \"${message}\" --region %AWS_REGION% || echo SNS notification failed"
+                    bat "aws sns publish --topic-arn arn:aws:sns:us-east-1:992398098051:jenkins-build-notifications --subject \"Jenkins Build ${status}\" --message \"${message}\" --region us-east-1 || echo SNS notification failed"
                 }
             }
             echo 'Pipeline completed!'
