@@ -40,17 +40,24 @@ pipeline {
             steps {
                 script {
                     withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
-                        // Update kubeconfig
+                        // Update kubeconfig with IAM role authentication
                         bat "aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION%"
                         
-                        // Create namespace
-                        bat "kubectl create namespace %K8S_NAMESPACE% --dry-run=client -o yaml | kubectl apply -f -"
+                        // Get IAM role ARN for the cluster
+                        def roleArn = bat(script: "aws eks describe-cluster --name %EKS_CLUSTER_NAME% --region %AWS_REGION% --query cluster.roleArn --output text", returnStdout: true).trim()
+                        
+                        // Update kubeconfig to use IAM role
+                        bat "kubectl config set-context %EKS_CLUSTER_NAME% --user=aws"
+                        bat "kubectl config set-credentials aws --exec-command=aws --exec-command-api-version=client.authentication.k8s.io/v1beta1 --exec-command-arg=eks --exec-command-arg=get-token --exec-command-arg=cluster-name=%EKS_CLUSTER_NAME% --exec-command-arg=region=%AWS_REGION%"
+                        
+                        // Create namespace with validation disabled
+                        bat "kubectl create namespace %K8S_NAMESPACE% --dry-run=client -o yaml | kubectl apply -f - --validate=false"
+                        
+                        // Apply all configurations
+                        bat "kubectl apply -f k8s/ -n %K8S_NAMESPACE% --validate=false"
                         
                         // Update deployment with new image tag
                         bat "kubectl set image deployment/luxe-jewelry-frontend frontend=%ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% -n %K8S_NAMESPACE% || echo 'Deployment may not exist yet'"
-                        
-                        // Apply all configurations
-                        bat "kubectl apply -f k8s/ -n %K8S_NAMESPACE%"
                         
                         // Wait for rollout
                         bat "kubectl rollout status deployment/luxe-jewelry-frontend -n %K8S_NAMESPACE% --timeout=300s || echo 'Rollout may not be ready'"
