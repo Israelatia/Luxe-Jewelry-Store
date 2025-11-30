@@ -1,6 +1,7 @@
 pipeline {
     parameters {
-        choice(name: 'AGENT_TYPE', choices: ['kubernetes-pods', 'ec2'], description: 'Choose agent type')
+        string(name: 'AGENT_TYPE', defaultValue: 'kubernetes-pods', description: 'Enter agent type: kubernetes-pods or ec2')
+        string(name: 'DEPLOY_TARGET', defaultValue: 'eks', description: 'Enter deployment target: eks, ec2, or both')
     }
     agent {
         label params.AGENT_TYPE == 'ec2' ? 'ec2-agent' : 'kubernetes'
@@ -45,11 +46,38 @@ pipeline {
         }
         
         stage('Deploy to EKS') {
+            when {
+                anyOf {
+                    expression { params.DEPLOY_TARGET == 'eks' }
+                    expression { params.DEPLOY_TARGET == 'both' }
+                }
+            }
             steps {
                 withKubeConfig([credentialsId: 'k8s-credentials']) {
                     bat "kubectl create namespace %K8S_NAMESPACE% --dry-run=client -o yaml | kubectl apply -f -"
                     bat "kubectl apply -f k8s/ -n %K8S_NAMESPACE%"
                     bat "kubectl get pods -n %K8S_NAMESPACE%"
+                }
+            }
+        }
+        
+        stage('Deploy to EC2') {
+            when {
+                anyOf {
+                    expression { params.DEPLOY_TARGET == 'ec2' }
+                    expression { params.DEPLOY_TARGET == 'both' }
+                }
+            }
+            steps {
+                script {
+                    // SSH to EC2 and deploy
+                    withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
+                        // Get EC2 instance IP
+                        def ec2Ip = bat(script: "aws ec2 describe-instances --filters Name=tag:Name,Values=luxe-jewelry-app Name=instance-state-name,Values=running --query Reservations[0].Instances[0].PublicIpAddress --output text", returnStdout: true).trim()
+                        
+                        // Deploy to EC2
+                        bat "ssh -o StrictHostKeyChecking=no -i /path/to/key.pem ec2-user@${ec2Ip} 'docker pull %ECR_REPOSITORY%/aws-project:latest && docker stop luxe-app || true && docker rm luxe-app || true && docker run -d -p 80:3000 --name luxe-app %ECR_REPOSITORY%/aws-project:latest'"
+                    }
                 }
             }
         }
