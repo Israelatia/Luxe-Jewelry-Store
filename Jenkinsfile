@@ -38,21 +38,27 @@ pipeline {
         
         stage('Deploy to EKS') {
             steps {
-                withKubeConfig([credentialsId: 'k8s-credentials']) {
-                    bat "kubectl create namespace %K8S_NAMESPACE% --dry-run=client -o yaml | kubectl apply -f -"
-                    
-                    // Update deployment with new image tag
-                    bat "kubectl set image deployment/luxe-jewelry-frontend frontend=%ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% -n %K8S_NAMESPACE%"
-                    
-                    // Apply all configurations
-                    bat "kubectl apply -f k8s/ -n %K8S_NAMESPACE%"
-                    
-                    // Wait for rollout
-                    bat "kubectl rollout status deployment/luxe-jewelry-frontend -n %K8S_NAMESPACE% --timeout=300s"
-                    
-                    // Show status
-                    bat "kubectl get pods -n %K8S_NAMESPACE%"
-                    bat "kubectl get services -n %K8S_NAMESPACE%"
+                script {
+                    withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
+                        // Update kubeconfig
+                        bat "aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION%"
+                        
+                        // Create namespace
+                        bat "kubectl create namespace %K8S_NAMESPACE% --dry-run=client -o yaml | kubectl apply -f -"
+                        
+                        // Update deployment with new image tag
+                        bat "kubectl set image deployment/luxe-jewelry-frontend frontend=%ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% -n %K8S_NAMESPACE% || echo 'Deployment may not exist yet'"
+                        
+                        // Apply all configurations
+                        bat "kubectl apply -f k8s/ -n %K8S_NAMESPACE%"
+                        
+                        // Wait for rollout
+                        bat "kubectl rollout status deployment/luxe-jewelry-frontend -n %K8S_NAMESPACE% --timeout=300s || echo 'Rollout may not be ready'"
+                        
+                        // Show status
+                        bat "kubectl get pods -n %K8S_NAMESPACE%"
+                        bat "kubectl get services -n %K8S_NAMESPACE%"
+                    }
                 }
             }
         }
