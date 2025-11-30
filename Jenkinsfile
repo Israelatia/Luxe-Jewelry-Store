@@ -4,7 +4,7 @@ pipeline {
         string(name: 'DEPLOY_TARGET', defaultValue: 'eks', description: 'Enter deployment target: eks, ec2, or both')
     }
     agent {
-        label params.AGENT_TYPE == 'ec2' ? 'ec2-agent' : 'kubernetes'
+        label params.AGENT_TYPE == 'ec2' ? 'ec2-agent || linux || docker' : 'kubernetes || linux || docker'
     }    
     environment {
         AWS_ACCOUNT_ID = '992398098051'
