@@ -4,7 +4,7 @@ pipeline {
         string(name: 'DEPLOY_TARGET', defaultValue: 'eks', description: 'Enter deployment target: eks, ec2, or both')
     }
     agent {
-        label 'kubernetes || linux || docker'
+        label 'built-in'
     }    
     environment {
         AWS_ACCOUNT_ID = '992398098051'
