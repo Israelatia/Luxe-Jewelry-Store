@@ -25,12 +25,12 @@ pipeline {
         stage('Build & Push Frontend') {
             steps {
                 dir('frontend') {
-                    bat "docker build -t %ECR_REPOSITORY%/luxe-jewelry-frontend:%BUILD_NUMBER% ."
-                    bat "docker tag %ECR_REPOSITORY%/luxe-jewelry-frontend:%BUILD_NUMBER% %ECR_REPOSITORY%/luxe-jewelry-frontend:latest"
+                    bat "docker build -t %ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% ."
+                    bat "docker tag %ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% %ECR_REPOSITORY%/aws-project:latest"
                     withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
                         bat "aws ecr get-login-password --region %AWS_REGION% | docker login --username AWS --password-stdin %ECR_REPOSITORY%"
-                        bat "docker push %ECR_REPOSITORY%/luxe-jewelry-frontend:%BUILD_NUMBER%"
-                        bat "docker push %ECR_REPOSITORY%/luxe-jewelry-frontend:latest"
+                        bat "docker push %ECR_REPOSITORY%/aws-project:%BUILD_NUMBER%"
+                        bat "docker push %ECR_REPOSITORY%/aws-project:latest"
                     }
                 }
             }
@@ -42,7 +42,7 @@ pipeline {
                     bat "kubectl create namespace %K8S_NAMESPACE% --dry-run=client -o yaml | kubectl apply -f -"
                     
                     // Update deployment with new image tag
-                    bat "kubectl set image deployment/luxe-jewelry-frontend frontend=%ECR_REPOSITORY%/luxe-jewelry-frontend:%BUILD_NUMBER% -n %K8S_NAMESPACE%"
+                    bat "kubectl set image deployment/luxe-jewelry-frontend frontend=%ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% -n %K8S_NAMESPACE%"
                     
                     // Apply all configurations
                     bat "kubectl apply -f k8s/ -n %K8S_NAMESPACE%"
@@ -65,7 +65,7 @@ pipeline {
                         def ec2Ip = bat(script: "aws ec2 describe-instances --filters Name=tag:Name,Values=luxe-jewelry-app Name=instance-state-name,Values=running --query Reservations[0].Instances[0].PublicIpAddress --output text", returnStdout: true).trim()
                         
                         // Deploy latest image to EC2
-                        bat "ssh -o StrictHostKeyChecking=no -i /path/to/key.pem ec2-user@${ec2Ip} 'docker pull %ECR_REPOSITORY%/luxe-jewelry-frontend:latest && docker stop luxe-frontend || true && docker rm luxe-frontend || true && docker run -d -p 80:80 --name luxe-frontend %ECR_REPOSITORY%/luxe-jewelry-frontend:latest'"
+                        bat "ssh -o StrictHostKeyChecking=no -i /path/to/key.pem ec2-user@${ec2Ip} 'docker pull %ECR_REPOSITORY%/aws-project:latest && docker stop luxe-frontend || true && docker rm luxe-frontend || true && docker run -d -p 80:80 --name luxe-frontend %ECR_REPOSITORY%/aws-project:latest'"
                     }
                 }
             }
