@@ -1,5 +1,10 @@
 pipeline {
-    agent any    
+    parameters {
+        choice(name: 'AGENT_TYPE', choices: ['kubernetes-pods', 'ec2'], description: 'Choose agent type')
+    }
+    agent {
+        label params.AGENT_TYPE == 'ec2' ? 'ec2-agent' : 'kubernetes'
+    }    
     environment {
         AWS_ACCOUNT_ID = '992398098051'
         AWS_REGION = 'us-east-1'
