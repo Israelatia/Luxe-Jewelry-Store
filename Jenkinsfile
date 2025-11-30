@@ -4,7 +4,7 @@ pipeline {
         string(name: 'DEPLOY_TARGET', defaultValue: 'eks', description: 'Enter deployment target: eks, ec2, or both')
     }
     agent {
-        label 'built-in || master || any'
+        label 'kubernetes || linux || docker'
     }    
     environment {
         AWS_ACCOUNT_ID = '992398098051'
@@ -12,6 +12,7 @@ pipeline {
         ECR_REPOSITORY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         APP_NAME = 'aws-project'
         K8S_NAMESPACE = 'israel-app'
+        EKS_CLUSTER_NAME = 'student-eks-cluster'
     }
     
     stages {
