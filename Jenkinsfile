@@ -58,11 +58,6 @@ pipeline {
                         for (namespace in namespaces) {
                             echo "Deploying to namespace: ${namespace}..."
                             
-                            echo "Creating namespace..."
-                            bat """
-                            kubectl create namespace ${namespace} --dry-run=client -o yaml | kubectl apply -f -
-                            """
-
                             echo "Applying Kubernetes manifests..."
                             bat """
                             kubectl apply -f k8s/ -n ${namespace} --validate=false
@@ -86,28 +81,7 @@ pipeline {
             }
         }
 
-        stage('Deploy to EC2') {
-            when {
-                expression { params.DEPLOY_TARGET == 'ec2' || params.DEPLOY_TARGET == 'both' }
-            }
-            steps {
-                script {
-                    withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
-
-                        echo "Fetching EC2 instance IP..."
-                        def ec2Ip = bat(script: """
-                            aws ec2 describe-instances --filters Name=tag:Name,Values=luxe-jewelry-app Name=instance-state-name,Values=running --query Reservations[0].Instances[0].PublicIpAddress --output text
-                        """, returnStdout: true).trim()
-
-                        echo "Deploying to EC2..."
-                        bat """
-                        ssh -o StrictHostKeyChecking=no -i C:/keys/key.pem ec2-user@${ec2Ip} "docker pull %ECR_REPOSITORY%/aws-project:latest && docker stop luxe-frontend || true && docker rm luxe-frontend || true && docker run -d -p 80:80 --name luxe-frontend %ECR_REPOSITORY%/aws-project:latest"
-                        """
-                    }
-                }
-            }
-        }
-
+        
     }
 
     post {
