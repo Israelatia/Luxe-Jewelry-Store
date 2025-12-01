@@ -11,7 +11,7 @@ pipeline {
         AWS_REGION = 'us-east-1'
         ECR_REPOSITORY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         APP_NAME = 'aws-project'
-        K8S_NAMESPACES = ['jenkins', 'luxe-store-app', 'luxe-store-argo']
+        K8S_NAMESPACES = "jenkins,luxe-store-app,luxe-store-argo"
         EKS_CLUSTER_NAME = 'student-eks-cluster'
     }
 
@@ -54,7 +54,8 @@ pipeline {
                         """
 
                         // Loop through all namespaces
-                        for (namespace in K8S_NAMESPACES) {
+                        def namespaces = K8S_NAMESPACES.split(',')
+                        for (namespace in namespaces) {
                             echo "Deploying to namespace: ${namespace}..."
                             
                             echo "Creating namespace..."
