@@ -11,7 +11,7 @@ pipeline {
         AWS_REGION = 'us-east-1'
         ECR_REPOSITORY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         APP_NAME = 'aws-project'
-        K8S_NAMESPACE = 'israel-app'
+        K8S_NAMESPACES = ['jenkins', 'luxe-store-app', 'luxe-store-argo']
         EKS_CLUSTER_NAME = 'student-eks-cluster'
     }
 
@@ -53,28 +53,33 @@ pipeline {
                         aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION%
                         """
 
-                        echo "Creating namespace..."
-                        bat """
-                        kubectl create namespace %K8S_NAMESPACE% --dry-run=client -o yaml | kubectl apply -f -
-                        """
+                        // Loop through all namespaces
+                        for (namespace in K8S_NAMESPACES) {
+                            echo "Deploying to namespace: ${namespace}..."
+                            
+                            echo "Creating namespace..."
+                            bat """
+                            kubectl create namespace ${namespace} --dry-run=client -o yaml | kubectl apply -f -
+                            """
 
-                        echo "Applying Kubernetes manifests..."
-                        bat """
-                        kubectl apply -f k8s/ -n %K8S_NAMESPACE% --validate=false
-                        """
+                            echo "Applying Kubernetes manifests..."
+                            bat """
+                            kubectl apply -f k8s/ -n ${namespace} --validate=false
+                            """
 
-                        echo "Updating deployment image..."
-                        bat """
-                        kubectl set image deployment/luxe-jewelry-frontend frontend=%ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% -n %K8S_NAMESPACE% || echo Deployment not created yet
-                        """
+                            echo "Updating deployment image..."
+                            bat """
+                            kubectl set image deployment/luxe-jewelry-frontend frontend=%ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% -n ${namespace} || echo Deployment not created yet
+                            """
 
-                        echo "Waiting for rollout..."
-                        bat """
-                        kubectl rollout status deployment/luxe-jewelry-frontend -n %K8S_NAMESPACE% --timeout=300s || echo Rollout failed or pending
-                        """
+                            echo "Waiting for rollout..."
+                            bat """
+                            kubectl rollout status deployment/luxe-jewelry-frontend -n ${namespace} --timeout=300s || echo Rollout failed or pending
+                            """
 
-                        bat "kubectl get pods -n %K8S_NAMESPACE%"
-                        bat "kubectl get svc -n %K8S_NAMESPACE%"
+                            bat "kubectl get pods -n ${namespace}"
+                            bat "kubectl get svc -n ${namespace}"
+                        }
                     }
                 }
             }
