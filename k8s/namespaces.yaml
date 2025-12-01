@@ -1,25 +1,25 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: israel-jenkins
+  name: jenkins
   labels:
-    name: israel-jenkins
+    name: jenkins
     env: dev
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: israel-app
+  name: luxe-store-app
   labels:
-    name: israel-app
+    name: luxe-store-app
     env: dev
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: israel-argo
+  name: luxe-store-argo
   labels:
-    name: israel-argo
+    name: luxe-store-argo
     env: dev
 ---
 # NetworkPolicy to allow traffic between namespaces
