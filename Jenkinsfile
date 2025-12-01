@@ -52,13 +52,25 @@ pipeline {
                         bat """
                         aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION%
                         """
+                        
+                        echo "Setting AWS credentials for kubectl..."
+                        bat """
+                        set AWS_ACCESS_KEY_ID=%AWS_ACCESS_KEY_ID%
+                        set AWS_SECRET_ACCESS_KEY=%AWS_SECRET_ACCESS_KEY%
+                        set AWS_DEFAULT_REGION=%AWS_REGION%
+                        """
+                        
+                        echo "Testing EKS connectivity..."
+                        bat """
+                        kubectl cluster-info --v=2
+                        """
 
                         // Loop through all namespaces
                         def namespaces = K8S_NAMESPACES.split(',')
                         for (namespace in namespaces) {
                             echo "Deploying to namespace: ${namespace}..."
                             
-                            echo "Applying Kubernetes manifests..."
+                            echo "Applying Kubernetes manifests for namespace: ${namespace}..."
                             bat """
                             kubectl apply -f k8s/ -n ${namespace} --validate=false
                             """
