@@ -65,6 +65,11 @@ pipeline {
                         kubectl cluster-info --v=2
                         """
 
+                        echo "Creating namespaces first..."
+                        bat """
+                        kubectl apply -f k8s/namespaces.yaml --validate=false
+                        """
+
                         // Loop through all namespaces
                         def namespaces = K8S_NAMESPACES.split(',')
                         for (namespace in namespaces) {
@@ -72,7 +77,7 @@ pipeline {
                             
                             echo "Applying Kubernetes manifests for namespace: ${namespace}..."
                             bat """
-                            kubectl apply -f k8s/ -n ${namespace} --validate=false
+                            kubectl apply -f k8s/frontend-deployment.yaml -f k8s/frontend-service.yaml -f k8s/backend-deployment.yaml -f k8s/backend-service.yaml -f k8s/ingress.yaml -f k8s/hpa.yaml -f k8s/pvc.yaml -n ${namespace} --validate=false
                             """
 
                             echo "Updating deployment image..."
