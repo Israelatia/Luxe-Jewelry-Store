@@ -1,0 +1,148 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Auto Scaling Group for EKS Worker Nodes'
+
+Parameters:
+  ClusterName:
+    Type: String
+    Default: student-eks-cluster
+    Description: EKS Cluster Name
+  
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID for the worker nodes
+  
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet IDs for the worker nodes
+  
+  InstanceType:
+    Type: String
+    Default: t3.medium
+    Description: EC2 instance type for worker nodes
+  
+  MinSize:
+    Type: Number
+    Default: 1
+    Description: Minimum number of worker nodes
+  
+  MaxSize:
+    Type: Number
+    Default: 5
+    Description: Maximum number of worker nodes
+  
+  DesiredCapacity:
+    Type: Number
+    Default: 2
+    Description: Desired number of worker nodes
+
+Resources:
+  # IAM Role for EKS Worker Nodes
+  NodeInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Path: /
+      RoleName: !Sub '${ClusterName}-NodeInstanceRole'
+
+  # Instance Profile
+  NodeInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref NodeInstanceRole
+
+  # Security Group for Worker Nodes
+  NodeSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for EKS worker nodes
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-NodeSecurityGroup'
+        - Key: kubernetes.io/cluster/${ClusterName}
+          Value: owned
+
+  # Launch Template
+  NodeLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${ClusterName}-LaunchTemplate'
+      LaunchTemplateData:
+        InstanceType: !Ref InstanceType
+        IamInstanceProfile:
+          Name: !Ref NodeInstanceProfile
+        ImageId: ami-0c02fb55956c7d316  # Amazon Linux 2 EKS-optimized
+        SecurityGroupIds:
+          - !Ref NodeSecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -x
+            /etc/eks/bootstrap.sh ${ClusterName}
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${ClusterName}-Node'
+              - Key: kubernetes.io/cluster/${ClusterName}
+                Value: owned
+              - Key: k8s.io/cluster-autoscaler/enabled
+                Value: 'true'
+              - Key: k8s.io/cluster-autoscaler/${ClusterName}
+                Value: 'true'
+          - ResourceType: volume
+            Tags:
+              - Key: Name
+                Value: !Sub '${ClusterName}-Node-Volume'
+
+  # Auto Scaling Group
+  NodeAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: !Ref SubnetIds
+      LaunchTemplate:
+        LaunchTemplateId: !Ref NodeLaunchTemplate
+        Version: '$Latest'
+      MinSize: !Ref MinSize
+      MaxSize: !Ref MaxSize
+      DesiredCapacity: !Ref DesiredCapacity
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: !Sub '${ClusterName}-Node'
+          PropagateAtLaunch: true
+        - Key: kubernetes.io/cluster/${ClusterName}
+          Value: owned
+          PropagateAtLaunch: true
+        - Key: k8s.io/cluster-autoscaler/enabled
+          Value: 'true'
+          PropagateAtLaunch: true
+        - Key: k8s.io/cluster-autoscaler/${ClusterName}
+          Value: 'true'
+          PropagateAtLaunch: true
+
+Outputs:
+  NodeInstanceRoleArn:
+    Description: ARN of the Node Instance Role
+    Value: !GetAtt NodeInstanceRole.Arn
+    Export:
+      Name: !Sub '${ClusterName}-NodeInstanceRoleArn'
+  
+  AutoScalingGroupName:
+    Description: Name of the Auto Scaling Group
+    Value: !Ref NodeAutoScalingGroup
+    Export:
+      Name: !Sub '${ClusterName}-AutoScalingGroupName'
