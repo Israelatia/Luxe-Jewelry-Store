@@ -26,7 +26,6 @@ pipeline {
         stage('Build & Push Frontend') {
             steps {
                 dir('frontend') {
-
                     bat "docker build -t %ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% ."
                     bat "docker tag %ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% %ECR_REPOSITORY%/aws-project:latest"
 
@@ -35,7 +34,6 @@ pipeline {
                         bat "docker push %ECR_REPOSITORY%/aws-project:%BUILD_NUMBER%"
                         bat "docker push %ECR_REPOSITORY%/aws-project:latest"
                     }
-
                 }
             }
         }
@@ -49,9 +47,8 @@ pipeline {
                     withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
 
                         echo "Updating kubeconfig for EKS..."
-                        bat """
-                        aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION%
-                        """
+                        // This is the specific fix for 'You must be logged in to the server'
+                        bat "aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION%"
                         
                         echo "Setting AWS credentials for kubectl..."
                         bat """
@@ -61,10 +58,7 @@ pipeline {
                         """
                         
                         echo "Testing EKS connectivity..."
-                        bat """
-                        kubectl cluster-info --v=2
-                        """
-
+                        bat "kubectl cluster-info --v=2"
                         
                         // Loop through all namespaces
                         def namespaces = K8S_NAMESPACES.split(',')
@@ -93,8 +87,6 @@ pipeline {
                 }
             }
         }
-
-        
     }
 
     post {
