@@ -1,83 +1,120 @@
 pipeline {
-    agent any
-    
-    environment {
-        // הגדרת משתנים גלובליים
-        AWS_ACCOUNT_ID = '992398098051'
-        AWS_REGION     = 'us-east-1'
-        ECR_REPOSITORY = 'aws-project'
-        EKS_CLUSTER    = 'student-eks-cluster'
-        IMAGE_TAG      = "${BUILD_NUMBER}"
-        // הגדרת נתיב זמני ומוגן לקובץ Kubeconfig בתוך ה-Workspace
-        KUBECONFIG_PATH = "${WORKSPACE}/kubeconfig.yml" 
+    parameters {
+        string(name: 'AGENT_TYPE', defaultValue: 'kubernetes-pods', description: 'Enter agent type: kubernetes-pods or ec2')
+        string(name: 'DEPLOY_TARGET', defaultValue: 'eks', description: 'Enter deployment target: eks, ec2, or both')
     }
-    
+
+    agent { label 'built-in' }
+
+    environment {
+        AWS_ACCOUNT_ID = '992398098051'
+        AWS_REGION = 'us-east-1'
+        ECR_REPOSITORY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        APP_NAME = 'aws-project'
+        K8S_NAMESPACES = "jenkins,luxe-store-app,luxe-store-argo"
+        EKS_CLUSTER_NAME = 'student-eks-cluster'
+    }
+
     stages {
+
         stage('Checkout Code') {
             steps {
-                // בדיקת קוד ראשונית
                 checkout scm
             }
         }
-        
+
         stage('Build & Push Frontend') {
             steps {
                 dir('frontend') {
-                    // בניית תמונת Docker
-                    bat "docker build -t ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG} ."
-                    bat "docker tag ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:latest"
-                    
-                    // התחברות ל-ECR באמצעות AWS CLI
-                    withAWS(region: AWS_REGION) {
-                        bat "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-                        
-                        // דחיפת התמונות ל-ECR
-                        bat "docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
-                        bat "docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:latest"
+                    bat "docker build -t %ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% ."
+                    bat "docker tag %ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% %ECR_REPOSITORY%/aws-project:latest"
+
+                    withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
+                        bat "aws ecr get-login-password --region %AWS_REGION% | docker login --username AWS --password-stdin %ECR_REPOSITORY%"
+                        bat "docker push %ECR_REPOSITORY%/aws-project:%BUILD_NUMBER%"
+                        bat "docker push %ECR_REPOSITORY%/aws-project:latest"
                     }
                 }
             }
         }
-        
+
         stage('Deploy to EKS') {
+            when {
+                expression { params.DEPLOY_TARGET == 'eks' || params.DEPLOY_TARGET == 'both' }
+            }
             steps {
                 script {
-                    withAWS(region: AWS_REGION) {
-                        // משתנה הסביבה KUBECONFIG יחול רק בבלוק זה
-                        // זה מבטיח ש-kubectl יודע היכן למצוא את הקונפיגורציה
-                        withEnv(["KUBECONFIG=${KUBECONFIG_PATH}"]) {
-                            
-                            echo "Updating kubeconfig for EKS to use path: ${KUBECONFIG_PATH}"
-                            // יצירת קובץ Kubeconfig בנתיב מוגדר בתוך ה-WORKSPACE
-                            bat "aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION} --kubeconfig ${KUBECONFIG_PATH} --alias jenkins-alias"
+                    withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
+                        
+                        // *** FINAL FIX: Explicitly define KUBECONFIG path to avoid Windows user/home directory confusion ***
+                        withEnv([
+                            "AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", 
+                            "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}",
+                            "AWS_DEFAULT_REGION=${AWS_REGION}",
+                            "KUBECONFIG=C:\\Users\\israel\\.kube\\config" // Ensure using double backslashes for Groovy string literal
+                        ]) {
+
+                            echo "Updating kubeconfig for EKS..."
+                            // This command uses the KUBECONFIG path defined above to write the configuration
+                            bat "aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION%"
                             
                             echo "Testing EKS connectivity..."
-                            // בדיקת האימות. אם שלב זה נכשל, הבעיה היא בהרשאות IAM ב-EKS (aws-auth ConfigMap)
+                            // This command uses the KUBECONFIG path defined above and the credentials defined above
                             bat "kubectl cluster-info" 
-                            
-                            echo "Applying deployment..."
-                            // הפעלת ה-Deployment (החלף בנתיבים ובפקודות ה-kubectl שלך)
-                            bat "kubectl apply -f deployment.yaml"
-                            bat "kubectl apply -f service.yaml"
-                        }
-                    }
+
+                            // Loop through all namespaces
+                            def namespaces = K8S_NAMESPACES.split(',')
+                            for (namespace in namespaces) {
+                                echo "Deploying to namespace: ${namespace}..."
+                                
+                                // --- DEPLOYMENT BLOCK ---
+                                bat """
+                                echo Applying manifests for namespace: ${namespace}...
+                                kubectl apply -f k8s/ -n ${namespace} --validate=false --exclude=namespaces.yaml
+                                
+                                echo Updating deployment image...
+                                kubectl set image deployment/luxe-jewelry-frontend frontend=%ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% -n ${namespace} || echo Deployment not created yet
+
+                                echo Waiting for rollout...
+                                kubectl rollout status deployment/luxe-jewelry-frontend -n ${namespace} --timeout=300s || echo Rollout failed or pending
+
+                                kubectl get pods -n ${namespace}
+                                kubectl get svc -n ${namespace}
+                                """
+                            }
+                        } 
+                    } 
                 }
             }
         }
     }
-    
+
     post {
         always {
-            // פרסום הודעה ל-SNS על סטטוס הבנייה
             script {
-                def status = currentBuild.result == 'SUCCESS' ? 'SUCCESS' : 'FAILURE'
-                def subject = "Jenkins Build ${status}"
-                def message = "Jenkins Build ${status}: ${env.JOB_NAME} #${BUILD_NUMBER} - ${env.BUILD_URL}"
+                withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
 
-                withAWS(region: AWS_REGION) {
-                    bat "aws sns publish --topic-arn arn:aws:sns:${AWS_REGION}:${AWS_ACCOUNT_ID}:jenkins-build-notifications --subject \"${subject}\" --message \"${message}\" --region ${AWS_REGION}"
+                    def status = currentBuild.currentResult
+                    def buildUrl = env.BUILD_URL
+                    def projectName = env.JOB_NAME
+                    def buildNumber = env.BUILD_NUMBER
+
+                    def message = "Jenkins Build ${status}: ${projectName} #${buildNumber} - ${buildUrl}"
+
+                    bat """
+                    aws sns publish --topic-arn arn:aws:sns:us-east-1:992398098051:jenkins-build-notifications --subject "Jenkins Build ${status}" --message "${message}" --region us-east-1 || echo SNS failed
+                    """
                 }
             }
+            echo 'Pipeline completed!'
+        }
+
+        success {
+            echo '✅ Build and deployment successful! ✅'
+        }
+
+        failure {
+            echo '❌ Build or deployment failed! ❌'
         }
     }
 }
