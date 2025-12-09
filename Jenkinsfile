@@ -46,47 +46,43 @@ pipeline {
                 script {
                     withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
                         
-                        // FIX: Combine credential setting and kubeconfig update into ONE block
-                        bat """
-                        @echo off
-                        echo --- Configuring AWS Environment ---
-                        set AWS_ACCESS_KEY_ID=%AWS_ACCESS_KEY_ID%
-                        set AWS_SECRET_ACCESS_KEY=%AWS_SECRET_ACCESS_KEY%
-                        set AWS_DEFAULT_REGION=%AWS_REGION%
+                        // CRITICAL FIX: Use withEnv to force credentials to persist across all 'bat' executions
+                        withEnv([
+                            "AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", 
+                            "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}",
+                            "AWS_DEFAULT_REGION=${AWS_REGION}"
+                        ]) {
 
-                        echo --- Updating Kubeconfig ---
-                        aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION%
-
-                        echo --- Verifying Connectivity ---
-                        kubectl cluster-info
-                        """
-                        
-                        // Loop through all namespaces
-                        def namespaces = K8S_NAMESPACES.split(',')
-                        for (namespace in namespaces) {
-                            echo "Deploying to namespace: ${namespace}..."
+                            echo "Updating kubeconfig for EKS..."
+                            // Credentials are now available globally thanks to withEnv
+                            bat "aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION%"
                             
-                            // FIX: We must re-set credentials in this new block because it is a new shell session
-                            bat """
-                            @echo off
-                            set AWS_ACCESS_KEY_ID=%AWS_ACCESS_KEY_ID%
-                            set AWS_SECRET_ACCESS_KEY=%AWS_SECRET_ACCESS_KEY%
-                            set AWS_DEFAULT_REGION=%AWS_REGION%
+                            echo "Testing EKS connectivity..."
+                            bat "kubectl cluster-info" 
 
-                            echo Applying manifests to ${namespace}...
-                            kubectl apply -f k8s/ -n ${namespace} --validate=false --exclude=namespaces.yaml
-                            
-                            echo Updating image...
-                            kubectl set image deployment/luxe-jewelry-frontend frontend=%ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% -n ${namespace} || echo Deployment not created yet
+                            // Loop through all namespaces
+                            def namespaces = K8S_NAMESPACES.split(',')
+                            for (namespace in namespaces) {
+                                echo "Deploying to namespace: ${namespace}..."
+                                
+                                // --- DEPLOYMENT BLOCK ---
+                                // The environment variables are stable due to the wrapping 'withEnv'
+                                bat """
+                                echo Applying manifests for namespace: ${namespace}...
+                                kubectl apply -f k8s/ -n ${namespace} --validate=false --exclude=namespaces.yaml
+                                
+                                echo Updating deployment image...
+                                kubectl set image deployment/luxe-jewelry-frontend frontend=%ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% -n ${namespace} || echo Deployment not created yet
 
-                            echo Waiting for rollout...
-                            kubectl rollout status deployment/luxe-jewelry-frontend -n ${namespace} --timeout=300s || echo Rollout failed or pending
+                                echo Waiting for rollout...
+                                kubectl rollout status deployment/luxe-jewelry-frontend -n ${namespace} --timeout=300s || echo Rollout failed or pending
 
-                            kubectl get pods -n ${namespace}
-                            kubectl get svc -n ${namespace}
-                            """
-                        }
-                    }
+                                kubectl get pods -n ${namespace}
+                                kubectl get svc -n ${namespace}
+                                """
+                            }
+                        } 
+                    } 
                 }
             }
         }
