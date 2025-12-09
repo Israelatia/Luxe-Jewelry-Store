@@ -46,18 +46,20 @@ pipeline {
                 script {
                     withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
                         
-                        // CRITICAL FIX: Use withEnv to force credentials to persist across all 'bat' executions
+                        // *** FINAL FIX: Explicitly define KUBECONFIG path to avoid Windows user/home directory confusion ***
                         withEnv([
                             "AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", 
                             "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}",
-                            "AWS_DEFAULT_REGION=${AWS_REGION}"
+                            "AWS_DEFAULT_REGION=${AWS_REGION}",
+                            "KUBECONFIG=C:\\Users\\israel\\.kube\\config" // Ensure using double backslashes for Groovy string literal
                         ]) {
 
                             echo "Updating kubeconfig for EKS..."
-                            // Credentials are now available globally thanks to withEnv
+                            // This command uses the KUBECONFIG path defined above to write the configuration
                             bat "aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION%"
                             
                             echo "Testing EKS connectivity..."
+                            // This command uses the KUBECONFIG path defined above and the credentials defined above
                             bat "kubectl cluster-info" 
 
                             // Loop through all namespaces
@@ -66,7 +68,6 @@ pipeline {
                                 echo "Deploying to namespace: ${namespace}..."
                                 
                                 // --- DEPLOYMENT BLOCK ---
-                                // The environment variables are stable due to the wrapping 'withEnv'
                                 bat """
                                 echo Applying manifests for namespace: ${namespace}...
                                 kubectl apply -f k8s/ -n ${namespace} --validate=false --exclude=namespaces.yaml
