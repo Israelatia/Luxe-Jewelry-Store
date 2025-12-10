@@ -11,7 +11,6 @@ pipeline {
         AWS_REGION = 'us-east-1'
         ECR_REPOSITORY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         APP_NAME = 'aws-project'
-        K8S_NAMESPACES = "jenkins,luxe-store-app,luxe-store-argo"
         EKS_CLUSTER_NAME = 'student-eks-cluster'
     }
 
@@ -26,6 +25,7 @@ pipeline {
         stage('Build & Push Frontend') {
             steps {
                 dir('frontend') {
+
                     bat "docker build -t %ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% ."
                     bat "docker tag %ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% %ECR_REPOSITORY%/aws-project:latest"
 
@@ -34,6 +34,7 @@ pipeline {
                         bat "docker push %ECR_REPOSITORY%/aws-project:%BUILD_NUMBER%"
                         bat "docker push %ECR_REPOSITORY%/aws-project:latest"
                     }
+
                 }
             }
         }
@@ -45,48 +46,46 @@ pipeline {
             steps {
                 script {
                     withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
+
+                        echo "Updating kubeconfig for EKS..."
+                        bat """
+                        aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION%
+                        """
                         
-                        // *** FINAL FIX: Explicitly define KUBECONFIG path to avoid Windows user/home directory confusion ***
-                        withEnv([
-                            "AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", 
-                            "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}",
-                            "AWS_DEFAULT_REGION=${AWS_REGION}",
-                            "KUBECONFIG=C:\\Users\\israel\\.kube\\config" // Ensure using double backslashes for Groovy string literal
-                        ]) {
+                        echo "Setting AWS credentials for kubectl..."
+                        bat """
+                        set AWS_ACCESS_KEY_ID=%AWS_ACCESS_KEY_ID%
+                        set AWS_SECRET_ACCESS_KEY=%AWS_SECRET_ACCESS_KEY%
+                        set AWS_DEFAULT_REGION=%AWS_REGION%
+                        """
+                        
+                        echo "Testing EKS connectivity..."
+                        bat """
+                        kubectl cluster-info --v=2
+                        """
 
-                            echo "Updating kubeconfig for EKS..."
-                            // This command uses the KUBECONFIG path defined above to write the configuration
-                            bat "aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION%"
+                        echo "Deploying to default namespace..."
                             
-                            echo "Testing EKS connectivity..."
-                            // This command uses the KUBECONFIG path defined above and the credentials defined above
-                            bat "kubectl cluster-info" 
+                        // --- DEPLOYMENT BLOCK ---
+                        bat """
+                        echo Applying manifests...
+                        kubectl apply -f k8s/ --validate=false --exclude=namespaces.yaml
+                        
+                        echo Updating deployment image...
+                        kubectl set image deployment/luxe-jewelry-frontend frontend=%ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% || echo Deployment not created yet
 
-                            // Loop through all namespaces
-                            def namespaces = K8S_NAMESPACES.split(',')
-                            for (namespace in namespaces) {
-                                echo "Deploying to namespace: ${namespace}..."
-                                
-                                // --- DEPLOYMENT BLOCK ---
-                                bat """
-                                echo Applying manifests for namespace: ${namespace}...
-                                kubectl apply -f k8s/ -n ${namespace} --validate=false --exclude=namespaces.yaml
-                                
-                                echo Updating deployment image...
-                                kubectl set image deployment/luxe-jewelry-frontend frontend=%ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% -n ${namespace} || echo Deployment not created yet
+                        echo Waiting for rollout...
+                        kubectl rollout status deployment/luxe-jewelry-frontend --timeout=300s || echo Rollout failed or pending
 
-                                echo Waiting for rollout...
-                                kubectl rollout status deployment/luxe-jewelry-frontend -n ${namespace} --timeout=300s || echo Rollout failed or pending
-
-                                kubectl get pods -n ${namespace}
-                                kubectl get svc -n ${namespace}
-                                """
-                            }
-                        } 
-                    } 
+                        kubectl get pods
+                        kubectl get svc
+                        """
+                    }
                 }
             }
         }
+
+        
     }
 
     post {
@@ -118,3 +117,5 @@ pipeline {
         }
     }
 }
+
+
