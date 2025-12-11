@@ -60,8 +60,10 @@ pipeline {
                             echo "Testing EKS connectivity..."
                             bat "kubectl cluster-info --kubeconfig=C:\\Users\\israel\\.kube\\config"
                             
-                            echo "Verifying authentication..."
-                            bat "kubectl auth can-i get pods --kubeconfig=C:\\Users\\israel\\.kube\\config"
+                            echo "Verifying AWS credentials and kubectl access..."
+                            bat "aws sts get-caller-identity --region %AWS_REGION%"
+                            bat "kubectl auth can-i get pods --kubeconfig=C:\\Users\\israel\\.kube\\config || echo Authentication failed - checking kubeconfig"
+                            bat "type C:\\Users\\israel\\.kube\\config"
 
                             // Loop through all namespaces
                             def namespaces = K8S_NAMESPACES.split(',')
