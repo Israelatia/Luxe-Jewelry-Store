@@ -55,7 +55,8 @@ pipeline {
                         ]) {
 
                             echo "Updating kubeconfig for EKS..."
-                            bat "aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION%"
+                            bat "if exist C:\\Users\\israel\\.kube\\config del C:\\Users\\israel\\.kube\\config"
+                            bat "aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION% --kubeconfig C:\\Users\\israel\\.kube\\config"
                             
                             echo "Testing EKS connectivity..."
                             bat "kubectl cluster-info --kubeconfig=C:\\Users\\israel\\.kube\\config"
