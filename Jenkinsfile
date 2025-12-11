@@ -54,24 +54,12 @@ pipeline {
                             "KUBECONFIG=C:\\Users\\israel\\.kube\\config" // Ensure using double backslashes for Groovy string literal
                         ]) {
 
-                            echo "Updating kubeconfig for EKS..."
+                            echo "Creating EKS kubeconfig..."
                             bat "if exist C:\\Users\\israel\\.kube\\config del C:\\Users\\israel\\.kube\\config"
                             bat "aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION% --kubeconfig C:\\Users\\israel\\.kube\\config"
                             
-                            echo "Testing AWS credentials first..."
-                            bat "aws sts get-caller-identity --region %AWS_REGION%"
-                            bat "aws eks describe-cluster --name %EKS_CLUSTER_NAME% --region %AWS_REGION% --query cluster.endpoint"
-                            
-                            echo "Checking kubeconfig contents..."
-                            bat "type C:\\Users\\israel\\.kube\\config"
-                            
-                            echo "Testing EKS connectivity with explicit AWS credentials..."
-                            bat "set AWS_ACCESS_KEY_ID=%AWS_ACCESS_KEY_ID% && set AWS_SECRET_ACCESS_KEY=%AWS_SECRET_ACCESS_KEY% && set AWS_DEFAULT_REGION=%AWS_REGION% && kubectl cluster-info --kubeconfig=C:\\Users\\israel\\.kube\\config"
-                            
-                            echo "Verifying AWS credentials and kubectl access..."
-                            bat "aws sts get-caller-identity --region %AWS_REGION%"
-                            bat "kubectl auth can-i get pods --kubeconfig=C:\\Users\\israel\\.kube\\config || echo Authentication failed - checking kubeconfig"
-                            bat "type C:\\Users\\israel\\.kube\\config"
+                            echo "Testing EKS access..."
+                            bat "kubectl cluster-info --kubeconfig=C:\\Users\\israel\\.kube\\config"
                             
                             echo "Sending EKS deployment start notification..."
                             bat "aws sns publish --topic-arn arn:aws:sns:us-east-1:992398098051:jenkins-build-notifications --subject \"EKS Deployment Started\" --message \"Starting EKS deployment for build #%BUILD_NUMBER% to cluster: %EKS_CLUSTER_NAME%\" --region us-east-1 || echo SNS start notification failed"
