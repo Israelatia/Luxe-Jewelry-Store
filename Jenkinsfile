@@ -64,6 +64,9 @@ pipeline {
                             bat "aws sts get-caller-identity --region %AWS_REGION%"
                             bat "kubectl auth can-i get pods --kubeconfig=C:\\Users\\israel\\.kube\\config || echo Authentication failed - checking kubeconfig"
                             bat "type C:\\Users\\israel\\.kube\\config"
+                            
+                            echo "Sending EKS deployment start notification..."
+                            bat "aws sns publish --topic-arn arn:aws:sns:us-east-1:992398098051:jenkins-build-notifications --subject \"EKS Deployment Started\" --message \"Starting EKS deployment for build #%BUILD_NUMBER% to cluster: %EKS_CLUSTER_NAME%\" --region us-east-1 || echo SNS start notification failed"
 
                             // Loop through all namespaces
                             def namespaces = K8S_NAMESPACES.split(',')
@@ -85,6 +88,9 @@ pipeline {
                                 kubectl get svc -n ${namespace} --kubeconfig=C:\\Users\\israel\\.kube\\config
                                 """
                             }
+                            
+                            echo "Sending EKS deployment completion notification..."
+                            bat "aws sns publish --topic-arn arn:aws:sns:us-east-1:992398098051:jenkins-build-notifications --subject \"EKS Deployment Completed\" --message \"EKS deployment completed for build #%BUILD_NUMBER% to cluster: %EKS_CLUSTER_NAME%. Deployed to namespaces: %K8S_NAMESPACES%\" --region us-east-1 || echo SNS completion notification failed"
                         } 
                     } 
                 }
