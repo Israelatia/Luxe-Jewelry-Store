@@ -55,12 +55,13 @@ pipeline {
                         ]) {
 
                             echo "Updating kubeconfig for EKS..."
-                            // This command uses the KUBECONFIG path defined above to write the configuration
                             bat "aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION%"
                             
                             echo "Testing EKS connectivity..."
-                            // This command uses the KUBECONFIG path defined above and the credentials defined above
-                            bat "kubectl cluster-info" 
+                            bat "kubectl cluster-info --kubeconfig=C:\\Users\\israel\\.kube\\config"
+                            
+                            echo "Verifying authentication..."
+                            bat "kubectl auth can-i get pods --kubeconfig=C:\\Users\\israel\\.kube\\config"
 
                             // Loop through all namespaces
                             def namespaces = K8S_NAMESPACES.split(',')
@@ -70,16 +71,16 @@ pipeline {
                                 // --- DEPLOYMENT BLOCK ---
                                 bat """
                                 echo Applying manifests for namespace: ${namespace}...
-                                kubectl apply -f k8s/ -n ${namespace} --validate=false --exclude=namespaces.yaml
+                                kubectl apply -f k8s/ -n ${namespace} --validate=false --exclude=namespaces.yaml --kubeconfig=C:\\Users\\israel\\.kube\\config
                                 
                                 echo Updating deployment image...
-                                kubectl set image deployment/luxe-jewelry-frontend frontend=%ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% -n ${namespace} || echo Deployment not created yet
+                                kubectl set image deployment/luxe-jewelry-frontend frontend=%ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% -n ${namespace} --kubeconfig=C:\\Users\\israel\\.kube\\config || echo Deployment not created yet
 
                                 echo Waiting for rollout...
-                                kubectl rollout status deployment/luxe-jewelry-frontend -n ${namespace} --timeout=300s || echo Rollout failed or pending
+                                kubectl rollout status deployment/luxe-jewelry-frontend -n ${namespace} --timeout=300s --kubeconfig=C:\\Users\\israel\\.kube\\config || echo Rollout failed or pending
 
-                                kubectl get pods -n ${namespace}
-                                kubectl get svc -n ${namespace}
+                                kubectl get pods -n ${namespace} --kubeconfig=C:\\Users\\israel\\.kube\\config
+                                kubectl get svc -n ${namespace} --kubeconfig=C:\\Users\\israel\\.kube\\config
                                 """
                             }
                         } 
