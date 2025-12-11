@@ -58,8 +58,15 @@ pipeline {
                             bat "if exist C:\\Users\\israel\\.kube\\config del C:\\Users\\israel\\.kube\\config"
                             bat "aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION% --kubeconfig C:\\Users\\israel\\.kube\\config"
                             
-                            echo "Testing EKS connectivity..."
-                            bat "kubectl cluster-info --kubeconfig=C:\\Users\\israel\\.kube\\config"
+                            echo "Testing AWS credentials first..."
+                            bat "aws sts get-caller-identity --region %AWS_REGION%"
+                            bat "aws eks describe-cluster --name %EKS_CLUSTER_NAME% --region %AWS_REGION% --query cluster.endpoint"
+                            
+                            echo "Checking kubeconfig contents..."
+                            bat "type C:\\Users\\israel\\.kube\\config"
+                            
+                            echo "Testing EKS connectivity with explicit AWS credentials..."
+                            bat "set AWS_ACCESS_KEY_ID=%AWS_ACCESS_KEY_ID% && set AWS_SECRET_ACCESS_KEY=%AWS_SECRET_ACCESS_KEY% && set AWS_DEFAULT_REGION=%AWS_REGION% && kubectl cluster-info --kubeconfig=C:\\Users\\israel\\.kube\\config"
                             
                             echo "Verifying AWS credentials and kubectl access..."
                             bat "aws sts get-caller-identity --region %AWS_REGION%"
