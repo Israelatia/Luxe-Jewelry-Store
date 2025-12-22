@@ -1,0 +1,302 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-server
+  namespace: argocd
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argocd-server-cluster-role
+rules:
+- apiGroups:
+  - "*"
+  resources:
+  - "*"
+  verbs:
+  - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-server-cluster-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argocd-server-cluster-role
+subjects:
+- kind: ServiceAccount
+  name: argocd-server
+  namespace: argocd
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  application.instanceLabelKey: argocd.argoproj.io/instance
+  statusbadge.enabled: "true"
+  users.anonymous.enabled: "false"
+  accounts.admin: login
+  accounts.admin.enabled: "true"
+  accounts.apikeys.enabled: "true"
+  repositories.credentials: "false"
+  server.insecure: "true"
+  server.grpc.web: "true"
+  server.rootpath: /
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-secret
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-secret
+    app.kubernetes.io/part-of: argocd
+type: Opaque
+data:
+  admin.password: JDJhJDEwJEFSY1ZjQk5sZ3hGdVh6b0c3V1J4VU9XcFh1V0tZLjZTNG9QL1J3Cg==
+  admin.passwordMtime: MTY3MjUzNDAwMAo=
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-server
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-server
+    app.kubernetes.io/part-of: argocd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-server
+      app.kubernetes.io/part-of: argocd
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: argocd-server
+        app.kubernetes.io/part-of: argocd
+    spec:
+      serviceAccountName: argocd-server
+      containers:
+      - name: argocd-server
+        image: argoproj/argocd:latest
+        command:
+        - argocd-server
+        - --staticassets
+        - /shared/app
+        - --repo-server
+        - argocd-repo-server:8081
+        - --dex-server
+        - http://argocd-dex-server:5556
+        - --redis-server
+        - argocd-redis:6379
+        - --loglevel
+        - info
+        - --insecure
+        ports:
+        - containerPort: 8080
+        - containerPort: 8083
+        volumeMounts:
+        - name: staticfiles
+          mountPath: /shared/app
+      volumes:
+      - name: staticfiles
+        emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-repo-server
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-repo-server
+    app.kubernetes.io/part-of: argocd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-repo-server
+      app.kubernetes.io/part-of: argocd
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: argocd-repo-server
+        app.kubernetes.io/part-of: argocd
+    spec:
+      containers:
+      - name: argocd-repo-server
+        image: argoproj/argocd:latest
+        command:
+        - argocd-repo-server
+        - --loglevel
+        - info
+        ports:
+        - containerPort: 8081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-dex-server
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-dex-server
+    app.kubernetes.io/part-of: argocd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-dex-server
+      app.kubernetes.io/part-of: argocd
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: argocd-dex-server
+        app.kubernetes.io/part-of: argocd
+    spec:
+      containers:
+      - name: dex
+        image: quay.io/dexidp/dex:v2.30.0
+        command:
+        - dex
+        - serve
+        - /etc/dex/cfg/config.yaml
+        ports:
+        - containerPort: 5556
+        volumeMounts:
+        - name: config
+          mountPath: /etc/dex
+      volumes:
+      - name: config
+        configMap:
+          name: argocd-dex-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-dex-config
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-dex-config
+    app.kubernetes.io/part-of: argocd
+data:
+  config.yaml: |
+    connectors:
+    - type: oidc
+      id: oidc
+      name: OpenID Connect
+      config:
+        issuer: https://your-oidc-provider.com
+        clientID: argocd
+        clientSecret: $oidc.clientSecret
+        requestedScopes: ["openid", "profile", "email", "groups"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-redis
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-redis
+    app.kubernetes.io/part-of: argocd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-redis
+      app.kubernetes.io/part-of: argocd
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: argocd-redis
+        app.kubernetes.io/part-of: argocd
+    spec:
+      containers:
+      - name: redis
+        image: redis:6.2.6-alpine
+        ports:
+        - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-server
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-server
+    app.kubernetes.io/part-of: argocd
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    nodePort: 30080
+  - name: https
+    port: 443
+    targetPort: 8080
+    nodePort: 30443
+  selector:
+    app.kubernetes.io/name: argocd-server
+    app.kubernetes.io/part-of: argocd
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-repo-server
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-repo-server
+    app.kubernetes.io/part-of: argocd
+spec:
+  ports:
+  - name: server
+    port: 8081
+    targetPort: 8081
+  selector:
+    app.kubernetes.io/name: argocd-repo-server
+    app.kubernetes.io/part-of: argocd
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-dex-server
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-dex-server
+    app.kubernetes.io/part-of: argocd
+spec:
+  ports:
+  - name: http
+    port: 5556
+    targetPort: 5556
+  selector:
+    app.kubernetes.io/name: argocd-dex-server
+    app.kubernetes.io/part-of: argocd
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-redis
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-redis
+    app.kubernetes.io/part-of: argocd
+spec:
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+  selector:
+    app.kubernetes.io/name: argocd-redis
+    app.kubernetes.io/part-of: argocd
