@@ -32,7 +32,7 @@ pipeline {
                         bat "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
                         
                         echo "Building Image: ${IMAGE_NAME}:${IMAGE_TAG}"
-                        bat "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                        bat "docker build -f dockerfile.web -t ${IMAGE_NAME}:${IMAGE_TAG} ."
                         bat "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
                     }
                 }
