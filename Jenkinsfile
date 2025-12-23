@@ -59,8 +59,8 @@ pipeline {
                         bat "if exist ${KUBECONFIG_PATH} del ${KUBECONFIG_PATH}"
                         bat "aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION} --kubeconfig ${KUBECONFIG_PATH}"
 
-                        echo "Updating deployment image..."
-                        bat "kubectl set image deployment/luxe-frontend frontend=${IMAGE_NAME}:${IMAGE_TAG} --kubeconfig=${KUBECONFIG_PATH}"
+                        echo "Updating deployment image in namespace: ${NAMESPACE}..."
+                        bat "kubectl set image deployment/luxe-frontend frontend=${IMAGE_NAME}:${IMAGE_TAG} -n ${NAMESPACE} --kubeconfig=${KUBECONFIG_PATH}"
                     }
                 }
             }
@@ -70,11 +70,11 @@ pipeline {
             steps {
                 withAWS(credentials: "${AWS_CRED_ID}", region: "${AWS_REGION}") {
                     script {
-                        echo "Waiting for Rollout..."
-                        bat "kubectl rollout status deployment/luxe-frontend --timeout=120s --kubeconfig=${KUBECONFIG_PATH}"
+                        echo "Waiting for Rollout in namespace: ${NAMESPACE}..."
+                        bat "kubectl rollout status deployment/luxe-frontend -n ${NAMESPACE} --timeout=120s --kubeconfig=${KUBECONFIG_PATH}"
                         
                         echo "Verifying Image Source in Running Pods..."
-                        bat "kubectl get pods -o jsonpath=\"{.items[*].spec.containers[*].image}\" --kubeconfig=${KUBECONFIG_PATH}"
+                        bat "kubectl get pods -n ${NAMESPACE} -o jsonpath=\"{.items[*].spec.containers[*].image}\" --kubeconfig=${KUBECONFIG_PATH}"
                     }
                 }
             }
