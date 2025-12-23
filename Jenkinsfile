@@ -39,61 +39,30 @@ pipeline {
                 }
             }
         }
-
-        stage('Deploy to EKS') {
-            when {
-                expression { params.DEPLOY_TARGET == 'eks' || params.DEPLOY_TARGET == 'both' }
-            }
-            steps {
-                withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
-                    script {
-                        withEnv([
-                            "AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", 
-                            "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}",
-                            "AWS_SESSION_TOKEN=${env.AWS_SESSION_TOKEN ?: ''}"
-                        ]) {
-
-                            echo "Refreshing Kubeconfig..."
-                            bat "if exist %KUBECONFIG% del %KUBECONFIG%"
-                            bat "aws eks update-kubeconfig --name %EKS_CLUSTER_NAME% --region %AWS_REGION% --kubeconfig %KUBECONFIG%"
-                            
-                            echo "Testing EKS access..."
-                            bat "kubectl cluster-info --kubeconfig=%KUBECONFIG%"
-                            
-                            def namespaces = K8S_NAMESPACES.split(',')
-                            for (namespace in namespaces) {
-                                echo "Deploying to namespace: ${namespace}..."
-                                
-                                bat """
-                                echo Applying manifests to ${namespace}...
-                                kubectl apply -f k8s/ -n ${namespace} --kubeconfig=%KUBECONFIG%
-                                
-                                echo Waiting for Kubernetes to register objects...
-                                timeout /t 5 /nobreak > NUL
-                                
-                                echo Updating deployment image...
-                                kubectl set image deployment/luxe-jewelry-frontend frontend=%ECR_REPOSITORY%/aws-project:%BUILD_NUMBER% -n ${namespace} --kubeconfig=%KUBECONFIG%
-                                
-                                echo Waiting for rollout...
-                                kubectl rollout status deployment/luxe-jewelry-frontend -n ${namespace} --timeout=120s --kubeconfig=%KUBECONFIG%
-                                """
-                            }
-                        } 
-                    } 
-                } 
-            }
-        }
     }
 
-    post {
-        always {
+      stage('Deploy to EKS') {
+    steps {
+        withAWS(region: 'us-east-1') {
             script {
-                withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
-                    def status = currentBuild.currentResult
-                    bat "aws sns publish --topic-arn arn:aws:sns:us-east-1:992398098051:jenkins-build-notifications --subject \"Jenkins Build ${status}\" --message \"Build #%BUILD_NUMBER% finished with status: ${status}\" --region %AWS_REGION%"
-                }
+                echo "Refreshing Kubeconfig..."
+                bat 'aws eks update-kubeconfig --name student-eks-cluster --region us-east-1 --kubeconfig C:\\Users\\israel\\.kube\\config'
+                
+                echo "Deploying to namespace: app..."
+                // Use -n app here
+                bat 'kubectl apply -f k8s/ -n app --kubeconfig=C:\\Users\\israel\\.kube\\config'
+                
+                echo "Waiting for Kubernetes to register objects..."
+                sleep(time: 10, unit: 'SECONDS') // Replaces the failing 'bat timeout'
+                
+                echo "Updating deployment image..."
+                // Update the deployment name and namespace here
+                bat 'kubectl set image deployment/luxe-jewelry-frontend frontend=992398098051.dkr.ecr.us-east-1.amazonaws.com/aws-project:99 -n app --kubeconfig=C:\\Users\\israel\\.kube\\config'
+                
+                echo "Waiting for rollout..."
+                bat 'kubectl rollout status deployment/luxe-jewelry-frontend -n app --timeout=120s --kubeconfig=C:\\Users\\israel\\.kube\\config'
             }
-            echo 'Pipeline completed!'
         }
     }
+}
 }
