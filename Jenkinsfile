@@ -59,13 +59,8 @@ pipeline {
                         bat "if exist ${KUBECONFIG_PATH} del ${KUBECONFIG_PATH}"
                         bat "aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION} --kubeconfig ${KUBECONFIG_PATH}"
 
-                        echo "Applying Manifests to namespace: ${NAMESPACE}"
-                        // This applies your YAMLs (Service, Deployment, etc.)
-                        bat "kubectl apply -f k8s/ -n ${NAMESPACE} --kubeconfig=${KUBECONFIG_PATH}"
-
-                        echo "Updating Image to ECR Migrated Image..."
-                        // Dynamically update the deployment to use the new ECR image tag
-                        bat "kubectl set image deployment/luxe-jewelry-frontend frontend=${IMAGE_NAME}:${IMAGE_TAG} -n ${NAMESPACE} --kubeconfig=${KUBECONFIG_PATH}"
+                        echo "Updating deployment image..."
+                        bat "kubectl set image deployment/luxe-frontend frontend=${IMAGE_NAME}:${IMAGE_TAG} --kubeconfig=${KUBECONFIG_PATH}"
                     }
                 }
             }
@@ -76,11 +71,10 @@ pipeline {
                 withAWS(credentials: "${AWS_CRED_ID}", region: "${AWS_REGION}") {
                     script {
                         echo "Waiting for Rollout..."
-                        bat "kubectl rollout status deployment/luxe-jewelry-frontend -n ${NAMESPACE} --timeout=120s --kubeconfig=${KUBECONFIG_PATH}"
+                        bat "kubectl rollout status deployment/luxe-frontend --timeout=120s --kubeconfig=${KUBECONFIG_PATH}"
                         
                         echo "Verifying Image Source in Running Pods..."
-                        // This command confirms the pod is pulling from YOUR ECR repo
-                        bat "kubectl get pods -n ${NAMESPACE} -o jsonpath=\"{.items[*].spec.containers[*].image}\" --kubeconfig=${KUBECONFIG_PATH}"
+                        bat "kubectl get pods -o jsonpath=\"{.items[*].spec.containers[*].image}\" --kubeconfig=${KUBECONFIG_PATH}"
                     }
                 }
             }
