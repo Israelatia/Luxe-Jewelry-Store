@@ -59,8 +59,19 @@ pipeline {
                         bat "if exist ${KUBECONFIG_PATH} del ${KUBECONFIG_PATH}"
                         bat "aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION} --kubeconfig ${KUBECONFIG_PATH}"
 
+                        echo "Detecting Actual Container Name..."
+                        // This step captures the container name dynamically to avoid "container not found" errors
+                        def containerName = bat(
+                            script: "kubectl get deployment luxe-frontend -n ${NAMESPACE} --kubeconfig=${KUBECONFIG_PATH} -o jsonpath=\"{.spec.template.spec.containers[0].name}\"",
+                            returnStdout: true
+                        ).trim()
+
+                        // Cleaning the output for Windows bat noise
+                        containerName = containerName.split('\n').last().trim()
+                        echo "Found Container: ${containerName}"
+
                         echo "Updating deployment image in namespace: ${NAMESPACE}..."
-                        bat "kubectl set image deployment/luxe-frontend frontend=${IMAGE_NAME}:${IMAGE_TAG} -n ${NAMESPACE} --kubeconfig=${KUBECONFIG_PATH}"
+                        bat "kubectl set image deployment/luxe-frontend ${containerName}=${IMAGE_NAME}:${IMAGE_TAG} -n ${NAMESPACE} --kubeconfig=${KUBECONFIG_PATH}"
                     }
                 }
             }
@@ -74,7 +85,7 @@ pipeline {
                         bat "kubectl rollout status deployment/luxe-frontend -n ${NAMESPACE} --timeout=120s --kubeconfig=${KUBECONFIG_PATH}"
                         
                         echo "Verifying Image Source in Running Pods..."
-                        bat "kubectl get pods -n ${NAMESPACE} -o jsonpath=\"{.items[*].spec.containers[*].image}\" --kubeconfig=${KUBECONFIG_PATH}"
+                        bat "kubectl get pods -n ${NAMESPACE} --kubeconfig=${KUBECONFIG_PATH} -o wide"
                     }
                 }
             }
@@ -86,7 +97,7 @@ pipeline {
             echo "Successfully migrated and deployed to EKS!"
         }
         failure {
-            echo "Deployment failed. Check ECR login or SecretProviderClass CRDs."
+            echo "Deployment failed. Check ECR login, Container names, or Cluster connectivity."
         }
     }
 }
