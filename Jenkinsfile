@@ -51,19 +51,6 @@ pipeline {
             }
         }
 
-        // --- שלב חדש: הגדרת הסודות בקלאסטר ---
-        stage('Prepare Secrets') {
-            steps {
-                withAWS(credentials: "${AWS_CRED_ID}", region: "${AWS_REGION}") {
-                    script {
-                        echo "Applying SecretProviderClass..."
-                        // מחיל את הקובץ שיצרנו קודם כדי שהקלאסטר יכיר את הסוד מ-AWS
-                        bat "kubectl apply -f ExampleSecretProviderClass.yaml -n ${NAMESPACE} --kubeconfig=${KUBECONFIG_PATH}"
-                    }
-                }
-            }
-        }
-
         stage('Deploy to EKS') {
             steps {
                 withAWS(credentials: "${AWS_CRED_ID}", region: "${AWS_REGION}") {
@@ -73,16 +60,17 @@ pipeline {
                         bat "aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION} --kubeconfig ${KUBECONFIG_PATH}"
 
                         echo "Detecting Actual Container Name..."
+                        // This step captures the container name dynamically to avoid "container not found" errors
                         def containerName = bat(
                             script: "kubectl get deployment luxe-frontend -n ${NAMESPACE} --kubeconfig=${KUBECONFIG_PATH} -o jsonpath=\"{.spec.template.spec.containers[0].name}\"",
                             returnStdout: true
                         ).trim()
 
+                        // Cleaning the output for Windows bat noise
                         containerName = containerName.split('\n').last().trim()
                         echo "Found Container: ${containerName}"
 
-                        echo "Updating deployment image and mounting secrets..."
-                        // כאן אנחנו מעדכנים את האימג'
+                        echo "Updating deployment image in namespace: ${NAMESPACE}..."
                         bat "kubectl set image deployment/luxe-frontend ${containerName}=${IMAGE_NAME}:${IMAGE_TAG} -n ${NAMESPACE} --kubeconfig=${KUBECONFIG_PATH}"
                     }
                 }
@@ -96,9 +84,8 @@ pipeline {
                         echo "Waiting for Rollout in namespace: ${NAMESPACE}..."
                         bat "kubectl rollout status deployment/luxe-frontend -n ${NAMESPACE} --timeout=120s --kubeconfig=${KUBECONFIG_PATH}"
                         
-                        echo "Verifying Secrets Mount..."
-                        // פקודה לבדיקה אם הקובץ של הסוד קיים בתוך הפוד החדש
-                        bat "kubectl get pods -n ${NAMESPACE} --kubeconfig=${KUBECONFIG_PATH}"
+                        echo "Verifying Image Source in Running Pods..."
+                        bat "kubectl get pods -n ${NAMESPACE} --kubeconfig=${KUBECONFIG_PATH} -o wide"
                     }
                 }
             }
@@ -107,10 +94,10 @@ pipeline {
 
     post {
         success {
-            echo "Successfully migrated and deployed to EKS with AWS Secrets!"
+            echo "Successfully migrated and deployed to EKS!"
         }
         failure {
-            echo "Deployment failed. Check ECR login, Container names, or SecretProviderClass."
+            echo "Deployment failed. Check ECR login, Container names, or Cluster connectivity."
         }
     }
 }
